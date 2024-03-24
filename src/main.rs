@@ -1,3 +1,4 @@
+mod parsing;
 use tree_sitter::{Node, Parser, TreeCursor};
 
 fn main() {
@@ -66,18 +67,6 @@ mod tests {
             .expect("should be able to load Python grammar");
 
         parser
-    }
-
-    #[test]
-    fn it_works() {
-        let mut parser = get_parser();
-
-        let source_code = "def add(x,y):\n    return x+y";
-        let tree = parser.parse(source_code, None).unwrap();
-        let root_node = tree.root_node();
-
-        assert_eq!(root_node.start_position().column, 0);
-        assert_eq!(root_node.end_position().column, 14);
     }
 
     #[test]
