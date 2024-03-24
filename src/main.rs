@@ -13,15 +13,15 @@ fn walk_rec(cursor: &mut TreeCursor, closure: fn(&Node) -> ()) {
 
     closure(&node);
 
-    while cursor.goto_next_sibling() {
-        let node = cursor.node();
-
-        closure(&node);
-    }
-
-    while cursor.goto_first_child() {
+    if cursor.goto_first_child() {
         walk_rec(cursor, closure);
     }
+
+    while cursor.goto_next_sibling() {
+        walk_rec(cursor, closure);
+    }
+
+    cursor.goto_parent();
 }
 
 #[cfg(test)]
