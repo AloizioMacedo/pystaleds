@@ -8,7 +8,10 @@ fn main() {
         .expect("should be able to load Python grammar");
 }
 
-fn walk_rec(cursor: &mut TreeCursor, closure: fn(&Node) -> ()) {
+fn walk_rec<F>(cursor: &mut TreeCursor, closure: &F)
+where
+    F: Fn(&Node),
+{
     let node = cursor.node();
 
     closure(&node);
@@ -22,6 +25,33 @@ fn walk_rec(cursor: &mut TreeCursor, closure: fn(&Node) -> ()) {
     }
 
     cursor.goto_parent();
+}
+
+fn print_param(node: &Node, source_code: &str) {
+    println!(
+        "Kind: {}, Text: {}, Is Named: {}, Name: {}",
+        node.kind(),
+        node.utf8_text(source_code.as_bytes()).unwrap(),
+        node.is_named(),
+        node.grammar_name()
+    );
+
+    get_docstring(node, source_code)
+    // if node.kind() == "identifier" && node.parent().map(|n| n.kind() == "parameters") == Some(true)
+    // {
+    //     println!("{}", node.utf8_text(source_code.as_bytes()).unwrap());
+    // }
+}
+
+fn get_docstring(node: &Node, source_code: &str) {
+    let mut cur = node.walk();
+
+    for child in node.children(&mut cur) {
+        println!(
+            "Child: {}",
+            child.utf8_text(source_code.as_bytes()).unwrap()
+        );
+    }
 }
 
 #[cfg(test)]
@@ -54,14 +84,29 @@ mod tests {
     fn recursive_walk() {
         let mut parser = get_parser();
 
-        let source_code = r#"def add(x,y):
+        let source_code = r#"def add(x: int,y):
+    """This is a docstring."""
     return x+y
 
 def sub(x,y):
-    return x-y"#;
+    """This is a multi-line docstring.
+
+    And this is the rest.
+    Args:
+        x (int): Hehehe.
+        y (int): Nope.
+    """
+    return x-y
+
+def other_func(x,y,z):
+    "This is just a throw-away string!"
+    return x+y+2*z
+"#;
         let tree = parser.parse(source_code, None).unwrap();
         let root_node = tree.root_node();
 
-        walk_rec(&mut root_node.walk(), |node| println!("{:?}", node));
+        let mut cursor = root_node.walk();
+
+        walk_rec(&mut cursor, &|node| print_param(node, source_code));
     }
 }
