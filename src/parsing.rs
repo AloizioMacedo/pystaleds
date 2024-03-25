@@ -31,6 +31,16 @@ pub fn parse_google_docstring(text: &str) -> Option<Vec<(&str, Option<&str>)>> {
     Some(params)
 }
 
+fn extract_docstring(content: &str) -> Option<&str> {
+    if !content.starts_with(r#"""""#) {
+        return None;
+    }
+
+    let ending = content[3..].find(r#"""""#)? + 6;
+
+    Some(&content[0..ending])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -49,5 +59,29 @@ mod tests {
 
         assert_eq!(args[0].1.unwrap(), "int");
         assert_eq!(args[1].0, "y");
+    }
+
+    #[test]
+    fn docstring_extraction() {
+        let docstring = r#""""Hey.
+
+            Args:
+                x (int): First var.
+                y: Second var.
+            """
+            x = 2
+            y = 3 + 5"#;
+
+        let docstring = extract_docstring(docstring).unwrap();
+
+        assert_eq!(
+            docstring,
+            r#""""Hey.
+
+            Args:
+                x (int): First var.
+                y: Second var.
+            """"#
+        );
     }
 }
