@@ -154,38 +154,6 @@ mod tests {
     }
 
     #[test]
-    fn recursive_walk() {
-        let mut parser = get_parser();
-
-        let source_code = r#"def add(x: int,y):
-    """This is a docstring."""
-    return x+y
-
-def sub(x,y):
-    """This is a multi-line docstring.
-
-    And this is the rest.
-    Args:
-        x (int): Hehehe.
-        y (int): Nope.
-    """
-    return x-y
-
-def other_func(x,y,z):
-    "This is just a throw-away string!"
-    return x+y+2*z
-"#;
-        let tree = parser.parse(source_code, None).unwrap();
-        let root_node = tree.root_node();
-
-        let mut cursor = root_node.walk();
-
-        walk_rec(&mut cursor, &mut |node| {
-            println!("{:?}", get_function_signature(node, source_code))
-        });
-    }
-
-    #[test]
     fn test_check_function_info() {
         let function_info = FunctionInfo {
             params: vec![("x", Some("int")), ("y", Some("str"))],
@@ -229,6 +197,6 @@ def other_func(x,y,z):
 
         let x = parse_file_contents(&mut parser, source_code, None, false, true, false);
 
-        println!("{:?}", x);
+        assert!(x.is_empty());
     }
 }
