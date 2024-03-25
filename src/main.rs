@@ -7,14 +7,14 @@ use pydcstrngs::parse_file_contents;
 struct Args {
     path: String,
 
-    #[arg(long, default_value_t = true)]
-    allow_no_docstring: bool,
+    #[arg(long, default_value_t = false, alias = "nd")]
+    forbid_no_docstring: bool,
 
-    #[arg(long, default_value_t = true)]
-    allow_no_arg_in_docstring: bool,
+    #[arg(long, default_value_t = false, alias = "na")]
+    forbid_no_args_in_docstring: bool,
 
-    #[arg(long, default_value_t = true)]
-    allow_untyped_docstrings: bool,
+    #[arg(long, default_value_t = false, alias = "ud")]
+    forbid_untyped_docstrings: bool,
 }
 
 fn main() -> Result<()> {
@@ -29,9 +29,9 @@ fn main() -> Result<()> {
         &mut parser,
         &contents,
         None,
-        args.allow_no_docstring,
-        args.allow_no_arg_in_docstring,
-        !args.allow_untyped_docstrings,
+        !args.forbid_no_docstring,
+        !args.forbid_no_args_in_docstring,
+        !args.forbid_untyped_docstrings,
     );
 
     if error_locations.is_empty() {

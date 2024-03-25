@@ -115,7 +115,7 @@ fn is_function_info_valid(
     info: &FunctionInfo,
     succeed_if_no_docstring: bool,
     succeed_if_no_args_in_docstring: bool,
-    docstring_should_always_be_typed: bool,
+    succeed_if_docstrings_are_not_typed: bool,
 ) -> bool {
     let Some(docstring) = info.docstring else {
         return succeed_if_no_docstring;
@@ -127,15 +127,15 @@ fn is_function_info_valid(
         return succeed_if_no_args_in_docstring;
     };
 
-    if docstring_should_always_be_typed {
-        args_from_docstring == info.params
-    } else {
+    if succeed_if_docstrings_are_not_typed {
         args_from_docstring.iter().zip(&info.params).all(
             |((param1, type1), (param2, type2))| match (type1, type2) {
                 (Some(type1), Some(type2)) => param1 == param2 && type1 == type2,
                 (_, _) => param1 == param2,
             },
         )
+    } else {
+        args_from_docstring == info.params
     }
 }
 
@@ -169,7 +169,7 @@ mod tests {
             ),
         };
 
-        assert!(is_function_info_valid(&function_info, false, false, false));
+        assert!(is_function_info_valid(&function_info, false, false, true));
     }
 
     #[test]
@@ -195,7 +195,7 @@ def other_func(x,y,z):
     return x+y+2*z
 "#;
 
-        let x = parse_file_contents(&mut parser, source_code, None, false, true, false);
+        let x = parse_file_contents(&mut parser, source_code, None, false, true, true);
 
         assert!(x.is_empty());
     }
