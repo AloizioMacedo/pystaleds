@@ -1,5 +1,9 @@
 pub fn parse_google_docstring(text: &str) -> Option<Vec<(&str, Option<&str>)>> {
-    let (_, args) = text.split_once("Args:\n")?;
+    let (_, mut args) = text.split_once("Args:\n")?;
+
+    if let Some(c) = args.find("Returns:\n") {
+        args = &args[..c];
+    };
 
     let first_line = args.lines().next()?;
 
