@@ -7,13 +7,13 @@ use pydcstrngs::parse_file_contents;
 struct Args {
     path: String,
 
-    #[arg(long, default_value_t = false)]
+    #[arg(long, default_value_t = true)]
     allow_no_docstring: bool,
 
-    #[arg(long, default_value_t = false)]
+    #[arg(long, default_value_t = true)]
     allow_no_arg_in_docstring: bool,
 
-    #[arg(long, default_value_t = false)]
+    #[arg(long, default_value_t = true)]
     allow_untyped_docstrings: bool,
 }
 
