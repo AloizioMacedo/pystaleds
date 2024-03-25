@@ -1,5 +1,4 @@
 mod parsing;
-use std::collections::HashMap;
 
 use tree_sitter::{Node, Parser, TreeCursor};
 
@@ -51,14 +50,14 @@ fn debug_node(node: &Node, source_code: &str) {
 fn get_function_signature<'a>(
     node: &Node,
     source_code: &'a str,
-) -> Option<HashMap<&'a str, Option<&'a str>>> {
+) -> Option<Vec<(&'a str, Option<&'a str>)>> {
     if !node.kind().eq("function_definition") {
         return None;
     }
 
     let params = node.child_by_field_name("parameters")?;
 
-    let mut sig = HashMap::new();
+    let mut sig = Vec::new();
 
     let mut c = params.walk();
 
@@ -78,10 +77,10 @@ fn get_function_signature<'a>(
             }
 
             if let (Some(identifier), Some(typ)) = (identifier, typ) {
-                sig.insert(identifier, Some(typ));
+                sig.push((identifier, Some(typ)));
             }
         } else if child.kind() == "identifier" {
-            sig.insert(child.utf8_text(source_code.as_bytes()).unwrap(), None);
+            sig.push((child.utf8_text(source_code.as_bytes()).unwrap(), None));
         }
     }
 

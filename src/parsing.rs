@@ -1,13 +1,11 @@
-use std::collections::HashMap;
-
-fn parse_google_docstring(text: &str) -> Option<HashMap<&str, Option<&str>>> {
+pub fn parse_google_docstring(text: &str) -> Option<Vec<(&str, Option<&str>)>> {
     let (_, args) = text.split_once("Args:\n")?;
 
     let first_line = args.lines().next()?;
 
     let indentation = first_line.chars().take_while(|c| c.is_whitespace()).count();
 
-    let mut params = HashMap::new();
+    let mut params = Vec::new();
 
     for line in args.lines() {
         if line.chars().take(indentation).all(|c| c.is_whitespace())
@@ -20,13 +18,13 @@ fn parse_google_docstring(text: &str) -> Option<HashMap<&str, Option<&str>>> {
             let arg = arg.trim();
 
             let Some((name, typ)) = arg.split_once(' ') else {
-                params.insert(arg, None);
+                params.push((arg, None));
                 continue;
             };
 
             let typ = typ.trim_start_matches('(').trim_end_matches(')');
 
-            params.insert(name, Some(typ));
+            params.push((name, Some(typ)));
         }
     }
 
@@ -49,7 +47,7 @@ mod tests {
 
         let args = parse_google_docstring(docstring).unwrap();
 
-        assert_eq!(args.get("x").unwrap().unwrap(), "int");
-        assert!(args.get("y").unwrap().is_none());
+        assert_eq!(args[0].1.unwrap(), "int");
+        assert_eq!(args[1].0, "y");
     }
 }
