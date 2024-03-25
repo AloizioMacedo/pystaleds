@@ -98,25 +98,38 @@ fn get_function_signature<'a>(node: &Node, source_code: &'a str) -> Option<Funct
 
     let block = block?;
 
-    eprintln!("{:?}", block);
     let content = block.utf8_text(source_code.as_bytes()).ok()?;
     let docstring = extract_docstring(content);
 
     Some(FunctionInfo { params, docstring })
 }
 
-fn check_function_info(info: &FunctionInfo) -> bool {
+fn check_function_info(
+    info: &FunctionInfo,
+    succeed_if_no_docstring: bool,
+    succeed_if_no_args_in_docstring: bool,
+    docstring_should_always_be_typed: bool,
+) -> bool {
     let Some(docstring) = info.docstring else {
-        return false;
+        return succeed_if_no_docstring;
     };
 
     let args_from_docstring = parse_google_docstring(docstring);
 
     let Some(args_from_docstring) = args_from_docstring else {
-        return false;
+        return succeed_if_no_args_in_docstring;
     };
 
-    args_from_docstring == info.params
+    if docstring_should_always_be_typed {
+        args_from_docstring == info.params
+    } else {
+        args_from_docstring.iter().zip(&info.params).all(
+            |((param1, type1), (param2, type2))| match (type1, type2) {
+                (Some(type1), Some(type2)) => param1 == param2 && type1 == type2,
+                (_, _) => param1 == param2,
+            },
+        )
+    }
 }
 
 #[cfg(test)]
@@ -174,11 +187,11 @@ def other_func(x,y,z):
 
                 Args:
                     x (int): Hehehe.
-                    y (str): Nope.
+                    y: Nope.
                 """"#,
             ),
         };
 
-        assert!(check_function_info(&function_info));
+        assert!(check_function_info(&function_info, false, false, false));
     }
 }
