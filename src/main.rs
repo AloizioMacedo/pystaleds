@@ -1,3 +1,4 @@
+mod debug;
 mod parsing;
 
 use tree_sitter::{Node, Parser, TreeCursor};
@@ -35,25 +36,6 @@ where
     }
 
     cursor.goto_parent();
-}
-
-fn print_param(node: &Node, source_code: &str) {
-    get_function_signature(node, source_code);
-    // if node.kind() == "identifier" && node.parent().map(|n| n.kind() == "parameters") == Some(true)
-    // {
-    //     println!("{}", node.utf8_text(source_code.as_bytes()).unwrap());
-    // }
-}
-
-fn debug_node(node: &Node, source_code: &str) {
-    println!(
-        "Kind: {}, Text: {}, Is Named: {}, Name: {}, Id: {}",
-        node.kind(),
-        node.utf8_text(source_code.as_bytes()).unwrap(),
-        node.is_named(),
-        node.grammar_name(),
-        node.kind_id()
-    );
 }
 
 fn get_function_signature<'a>(node: &Node, source_code: &'a str) -> Option<FunctionInfo<'a>> {
@@ -173,7 +155,9 @@ def other_func(x,y,z):
 
         let mut cursor = root_node.walk();
 
-        walk_rec(&mut cursor, &|node| print_param(node, source_code));
+        walk_rec(&mut cursor, &|node| {
+            println!("{:?}", get_function_signature(node, source_code))
+        });
     }
 
     #[test]
