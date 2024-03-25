@@ -8,12 +8,15 @@ struct Args {
     path: String,
 
     #[arg(long, default_value_t = false, alias = "nd")]
+    /// Will consider an error for a docstring to be absent.
     forbid_no_docstring: bool,
 
     #[arg(long, default_value_t = false, alias = "na")]
+    /// Will consider an error for an "Args" section to be absent.
     forbid_no_args_in_docstring: bool,
 
     #[arg(long, default_value_t = false, alias = "ud")]
+    /// Will consider an error for an arg in docstring to be untyped.
     forbid_untyped_docstrings: bool,
 }
 
