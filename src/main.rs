@@ -2,12 +2,20 @@ mod parsing;
 
 use tree_sitter::{Node, Parser, TreeCursor};
 
+use crate::parsing::{extract_docstring, parse_google_docstring};
+
 fn main() {
     let mut parser = Parser::new();
 
     parser
         .set_language(&tree_sitter_python::language())
         .expect("should be able to load Python grammar");
+}
+
+#[derive(Debug)]
+struct FunctionInfo<'a> {
+    params: Vec<(&'a str, Option<&'a str>)>,
+    docstring: Option<&'a str>,
 }
 
 fn walk_rec<F>(cursor: &mut TreeCursor, closure: &F)
@@ -39,29 +47,25 @@ fn print_param(node: &Node, source_code: &str) {
 
 fn debug_node(node: &Node, source_code: &str) {
     println!(
-        "Kind: {}, Text: {}, Is Named: {}, Name: {}",
+        "Kind: {}, Text: {}, Is Named: {}, Name: {}, Id: {}",
         node.kind(),
         node.utf8_text(source_code.as_bytes()).unwrap(),
         node.is_named(),
-        node.grammar_name()
+        node.grammar_name(),
+        node.kind_id()
     );
 }
 
-fn get_function_signature<'a>(
-    node: &Node,
-    source_code: &'a str,
-) -> Option<Vec<(&'a str, Option<&'a str>)>> {
+fn get_function_signature<'a>(node: &Node, source_code: &'a str) -> Option<FunctionInfo<'a>> {
     if !node.kind().eq("function_definition") {
         return None;
     }
 
-    let params = node.child_by_field_name("parameters")?;
+    let params_node = node.child_by_field_name("parameters")?;
 
-    let mut sig = Vec::new();
+    let mut params = Vec::new();
 
-    let mut c = params.walk();
-
-    for child in params.children(&mut c) {
+    for child in params_node.children(&mut params_node.walk()) {
         if child.kind() == "typed_parameter" {
             let mut identifier = None;
             let mut typ = None;
@@ -77,15 +81,42 @@ fn get_function_signature<'a>(
             }
 
             if let (Some(identifier), Some(typ)) = (identifier, typ) {
-                sig.push((identifier, Some(typ)));
+                params.push((identifier, Some(typ)));
             }
         } else if child.kind() == "identifier" {
-            sig.push((child.utf8_text(source_code.as_bytes()).unwrap(), None));
+            params.push((child.utf8_text(source_code.as_bytes()).unwrap(), None));
         }
     }
 
-    eprintln!("{:?}", sig);
-    Some(sig)
+    let mut block = None;
+    for child in node.children(&mut node.walk()) {
+        if child.kind() == "block" {
+            block = Some(child);
+            break;
+        }
+    }
+
+    let block = block?;
+
+    eprintln!("{:?}", block);
+    let content = block.utf8_text(source_code.as_bytes()).ok()?;
+    let docstring = extract_docstring(content);
+
+    Some(FunctionInfo { params, docstring })
+}
+
+fn check_function_info(info: &FunctionInfo) -> bool {
+    let Some(docstring) = info.docstring else {
+        return false;
+    };
+
+    let args_from_docstring = parse_google_docstring(docstring);
+
+    let Some(args_from_docstring) = args_from_docstring else {
+        return false;
+    };
+
+    args_from_docstring == info.params
 }
 
 #[cfg(test)]
@@ -130,5 +161,24 @@ def other_func(x,y,z):
         let mut cursor = root_node.walk();
 
         walk_rec(&mut cursor, &|node| print_param(node, source_code));
+    }
+
+    #[test]
+    fn test_check_function_info() {
+        let function_info = FunctionInfo {
+            params: vec![("x", Some("int")), ("y", Some("str"))],
+            docstring: Some(
+                r#"
+                """
+                Hello!
+
+                Args:
+                    x (int): Hehehe.
+                    y (str): Nope.
+                """"#,
+            ),
+        };
+
+        assert!(check_function_info(&function_info));
     }
 }

@@ -31,7 +31,7 @@ pub fn parse_google_docstring(text: &str) -> Option<Vec<(&str, Option<&str>)>> {
     Some(params)
 }
 
-fn extract_docstring(content: &str) -> Option<&str> {
+pub fn extract_docstring(content: &str) -> Option<&str> {
     if !content.starts_with(r#"""""#) {
         return None;
     }
