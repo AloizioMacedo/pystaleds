@@ -1,4 +1,6 @@
 mod parsing;
+use std::collections::HashMap;
+
 use tree_sitter::{Node, Parser, TreeCursor};
 
 fn main() {
@@ -29,6 +31,14 @@ where
 }
 
 fn print_param(node: &Node, source_code: &str) {
+    get_function_signature(node, source_code);
+    // if node.kind() == "identifier" && node.parent().map(|n| n.kind() == "parameters") == Some(true)
+    // {
+    //     println!("{}", node.utf8_text(source_code.as_bytes()).unwrap());
+    // }
+}
+
+fn debug_node(node: &Node, source_code: &str) {
     println!(
         "Kind: {}, Text: {}, Is Named: {}, Name: {}",
         node.kind(),
@@ -36,23 +46,47 @@ fn print_param(node: &Node, source_code: &str) {
         node.is_named(),
         node.grammar_name()
     );
-
-    get_docstring(node, source_code)
-    // if node.kind() == "identifier" && node.parent().map(|n| n.kind() == "parameters") == Some(true)
-    // {
-    //     println!("{}", node.utf8_text(source_code.as_bytes()).unwrap());
-    // }
 }
 
-fn get_docstring(node: &Node, source_code: &str) {
-    let mut cur = node.walk();
-
-    for child in node.children(&mut cur) {
-        println!(
-            "Child: {}",
-            child.utf8_text(source_code.as_bytes()).unwrap()
-        );
+fn get_function_signature<'a>(
+    node: &Node,
+    source_code: &'a str,
+) -> Option<HashMap<&'a str, Option<&'a str>>> {
+    if !node.kind().eq("function_definition") {
+        return None;
     }
+
+    let params = node.child_by_field_name("parameters")?;
+
+    let mut sig = HashMap::new();
+
+    let mut c = params.walk();
+
+    for child in params.children(&mut c) {
+        if child.kind() == "typed_parameter" {
+            let mut identifier = None;
+            let mut typ = None;
+
+            let mut d = child.walk();
+
+            for child in child.children(&mut d) {
+                if child.kind() == "identifier" {
+                    identifier = Some(child.utf8_text(source_code.as_bytes()).unwrap());
+                } else if child.kind() == "type" {
+                    typ = Some(child.utf8_text(source_code.as_bytes()).unwrap());
+                }
+            }
+
+            if let (Some(identifier), Some(typ)) = (identifier, typ) {
+                sig.insert(identifier, Some(typ));
+            }
+        } else if child.kind() == "identifier" {
+            sig.insert(child.utf8_text(source_code.as_bytes()).unwrap(), None);
+        }
+    }
+
+    eprintln!("{:?}", sig);
+    Some(sig)
 }
 
 #[cfg(test)]
