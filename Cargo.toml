@@ -6,7 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.81"
 cc = "1.0.90"
-clap = "4.5.4"
+clap = { version = "4.5.4", features = ["derive"] }
 tree-sitter = "0.22.2"
 tree-sitter-python = "0.21.0"
