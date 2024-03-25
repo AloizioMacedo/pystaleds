@@ -1,6 +1,6 @@
 use tree_sitter::Node;
 
-fn debug_node(node: &Node, source_code: &str) {
+pub(crate) fn _debug_node(node: &Node, source_code: &str) {
     println!(
         "Kind: {}, Text: {}, Is Named: {}, Name: {}, Id: {}",
         node.kind(),
