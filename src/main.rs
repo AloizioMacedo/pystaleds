@@ -21,6 +21,8 @@ struct Args {
 }
 
 fn main() -> Result<()> {
+    tracing_subscriber::fmt().init();
+
     let args = Args::parse();
 
     let contents = std::fs::read_to_string(args.path)?;
@@ -28,7 +30,7 @@ fn main() -> Result<()> {
     let mut parser = tree_sitter::Parser::new();
     parser.set_language(&tree_sitter_python::language())?;
 
-    let error_locations = parse_file_contents(
+    let success = parse_file_contents(
         &mut parser,
         &contents,
         None,
@@ -37,13 +39,9 @@ fn main() -> Result<()> {
         !args.forbid_untyped_docstrings,
     );
 
-    if error_locations.is_empty() {
+    if success {
         Ok(())
     } else {
-        for error_location in error_locations {
-            eprintln!("{:?}", error_location);
-        }
-
         Err(anyhow!("found errors"))
     }
 }

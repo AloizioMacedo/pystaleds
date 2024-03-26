@@ -11,21 +11,21 @@ pub struct FunctionInfo<'a> {
     docstring: Option<&'a str>,
 }
 
-pub fn parse_file_contents<'a>(
+pub fn parse_file_contents(
     parser: &mut Parser,
-    source_code: &'a str,
+    source_code: &str,
     old_tree: Option<&Tree>,
     succeed_if_no_docstring: bool,
     succeed_if_no_args_in_docstring: bool,
     docstring_should_always_be_typed: bool,
-) -> Vec<FunctionInfo<'a>> {
+) -> bool {
     let tree = parser
         .parse(source_code, old_tree)
         .expect("parser should be ready to parse");
 
     let mut cursor = tree.walk();
 
-    let mut infos_from_errors = Vec::new();
+    let mut success = true;
 
     walk_rec(&mut cursor, &mut |node| {
         let fs = get_function_signature(node, source_code);
@@ -36,12 +36,13 @@ pub fn parse_file_contents<'a>(
                 succeed_if_no_args_in_docstring,
                 docstring_should_always_be_typed,
             ) {
-                infos_from_errors.push(info);
+                tracing::error!("Invalid function signature: {:?}", info);
+                success = false;
             }
         }
     });
 
-    infos_from_errors
+    success
 }
 
 fn walk_rec<F>(cursor: &mut TreeCursor, closure: &mut F)
@@ -197,6 +198,6 @@ def other_func(x,y,z):
 
         let x = parse_file_contents(&mut parser, source_code, None, false, true, true);
 
-        assert!(x.is_empty());
+        assert!(!x);
     }
 }
