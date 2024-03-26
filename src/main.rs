@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{os::unix::ffi::OsStrExt, path::Path};
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
@@ -37,7 +37,9 @@ fn main() -> Result<()> {
         for entry in walk {
             let entry = entry?;
 
-            if entry.path().is_file() {
+            if entry.path().is_file()
+                && entry.path().extension() == Some(std::ffi::OsStr::from_bytes("py".as_bytes()))
+            {
                 let success = parse_file(
                     entry.path(),
                     args.forbid_no_docstring,
