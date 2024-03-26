@@ -27,12 +27,39 @@ fn main() -> Result<()> {
 
     let args = Args::parse();
 
-    let success = parse_file(
-        Path::new(&args.path),
-        args.forbid_no_docstring,
-        args.forbid_no_args_in_docstring,
-        args.forbid_untyped_docstrings,
-    )?;
+    let path = Path::new(&args.path);
+
+    let success = if path.is_dir() {
+        let walk = walkdir::WalkDir::new(path);
+
+        let mut global_success = true;
+
+        for entry in walk {
+            let entry = entry?;
+
+            if entry.path().is_file() {
+                let success = parse_file(
+                    entry.path(),
+                    args.forbid_no_docstring,
+                    args.forbid_no_args_in_docstring,
+                    args.forbid_untyped_docstrings,
+                )?;
+
+                if !success {
+                    global_success = false;
+                }
+            }
+        }
+
+        global_success
+    } else {
+        parse_file(
+            path,
+            args.forbid_no_docstring,
+            args.forbid_no_args_in_docstring,
+            args.forbid_untyped_docstrings,
+        )?
+    };
 
     if success {
         Ok(())
