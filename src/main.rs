@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use pydcstrngs::parse_file_contents;
@@ -25,23 +27,39 @@ fn main() -> Result<()> {
 
     let args = Args::parse();
 
-    let contents = std::fs::read_to_string(args.path)?;
-
-    let mut parser = tree_sitter::Parser::new();
-    parser.set_language(&tree_sitter_python::language())?;
-
-    let success = parse_file_contents(
-        &mut parser,
-        &contents,
-        None,
-        !args.forbid_no_docstring,
-        !args.forbid_no_args_in_docstring,
-        !args.forbid_untyped_docstrings,
-    );
+    let success = parse_file(
+        Path::new(&args.path),
+        args.forbid_no_docstring,
+        args.forbid_no_args_in_docstring,
+        args.forbid_untyped_docstrings,
+    )?;
 
     if success {
         Ok(())
     } else {
         Err(anyhow!("found errors"))
     }
+}
+
+fn parse_file(
+    path: &Path,
+    forbid_no_docstring: bool,
+    forbid_no_args_in_docstring: bool,
+    forbid_untyped_docstrings: bool,
+) -> Result<bool> {
+    let mut parser = tree_sitter::Parser::new();
+    parser.set_language(&tree_sitter_python::language())?;
+
+    let contents = std::fs::read_to_string(path)?;
+
+    let success = parse_file_contents(
+        &mut parser,
+        &contents,
+        None,
+        !forbid_no_docstring,
+        !forbid_no_args_in_docstring,
+        !forbid_untyped_docstrings,
+    );
+
+    Ok(success)
 }
