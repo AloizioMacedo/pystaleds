@@ -1,7 +1,8 @@
 mod debug;
 mod parsing;
 
-use tree_sitter::{Node, Parser, Tree, TreeCursor};
+use tracing::Level;
+use tree_sitter::{Node, Parser, Point, Tree, TreeCursor};
 
 use crate::parsing::{extract_docstring, parse_google_docstring};
 
@@ -9,6 +10,7 @@ use crate::parsing::{extract_docstring, parse_google_docstring};
 pub struct FunctionInfo<'a> {
     params: Vec<(&'a str, Option<&'a str>)>,
     docstring: Option<&'a str>,
+    start_position: Point,
 }
 
 pub fn parse_file_contents(
@@ -36,7 +38,6 @@ pub fn parse_file_contents(
                 succeed_if_no_args_in_docstring,
                 docstring_should_always_be_typed,
             ) {
-                tracing::error!("Invalid function signature: {:?}", info);
                 success = false;
             }
         }
@@ -109,7 +110,13 @@ fn get_function_signature<'a>(node: &Node, source_code: &'a str) -> Option<Funct
     let content = block.utf8_text(source_code.as_bytes()).ok()?;
     let docstring = extract_docstring(content);
 
-    Some(FunctionInfo { params, docstring })
+    let start_position = node.start_position();
+
+    Some(FunctionInfo {
+        params,
+        docstring,
+        start_position,
+    })
 }
 
 fn is_function_info_valid(
@@ -119,24 +126,60 @@ fn is_function_info_valid(
     succeed_if_docstrings_are_not_typed: bool,
 ) -> bool {
     let Some(docstring) = info.docstring else {
+        if !succeed_if_no_docstring {
+            tracing::event!(
+                Level::ERROR,
+                "Docstring missing at function starting on: {:?}",
+                info.start_position
+            );
+        }
+
         return succeed_if_no_docstring;
     };
 
     let args_from_docstring = parse_google_docstring(docstring);
 
     let Some(args_from_docstring) = args_from_docstring else {
+        if !succeed_if_no_args_in_docstring {
+            tracing::event!(
+                Level::ERROR,
+                "Args missing from docstring at function starting on: {:?}",
+                info.start_position
+            );
+        }
+
         return succeed_if_no_args_in_docstring;
     };
 
     if succeed_if_docstrings_are_not_typed {
-        args_from_docstring.iter().zip(&info.params).all(
+        let is_valid = args_from_docstring.iter().zip(&info.params).all(
             |((param1, type1), (param2, type2))| match (type1, type2) {
                 (Some(type1), Some(type2)) => param1 == param2 && type1 == type2,
                 (_, _) => param1 == param2,
             },
-        )
+        );
+
+        if !is_valid {
+            tracing::event!(
+                Level::ERROR,
+                "Docstring args not matching at function starting on {:?}",
+                info.start_position
+            );
+        }
+
+        is_valid
     } else {
-        args_from_docstring == info.params
+        let is_valid = args_from_docstring == info.params;
+
+        if !is_valid {
+            tracing::event!(
+                Level::ERROR,
+                "Docstring args not matching at function start on  {:?}",
+                info.start_position
+            );
+        }
+
+        is_valid
     }
 }
 
@@ -168,6 +211,7 @@ mod tests {
                     y: Nope.
                 """"#,
             ),
+            start_position: Point { row: 0, column: 0 },
         };
 
         assert!(is_function_info_valid(&function_info, false, false, true));

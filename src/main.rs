@@ -43,6 +43,13 @@ fn main() -> Result<()> {
             if entry.path().is_file()
                 && entry.path().extension() == Some(std::ffi::OsStr::from_bytes("py".as_bytes()))
             {
+                let span = tracing::error_span!(
+                    "file",
+                    file_name = entry.path().as_os_str().to_str().unwrap()
+                );
+
+                _ = span.enter();
+
                 let Ok(success) = parse_file(
                     entry.path(),
                     args.forbid_no_docstring,
@@ -60,6 +67,9 @@ fn main() -> Result<()> {
 
         global_success.into_inner()
     } else {
+        let span = tracing::error_span!("file", file_name = path.as_os_str().to_str().unwrap());
+        _ = span.enter();
+
         parse_file(
             path,
             args.forbid_no_docstring,
