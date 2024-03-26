@@ -1,8 +1,9 @@
-use std::{os::unix::ffi::OsStrExt, path::Path};
+use std::{os::unix::ffi::OsStrExt, path::Path, sync::atomic::AtomicBool};
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use pydcstrngs::parse_file_contents;
+use rayon::prelude::*;
 
 #[derive(Parser)]
 #[command(version, about, long_about=None)]
@@ -32,28 +33,32 @@ fn main() -> Result<()> {
     let success = if path.is_dir() {
         let walk = walkdir::WalkDir::new(path);
 
-        let mut global_success = true;
+        let global_success = AtomicBool::new(true);
 
-        for entry in walk {
-            let entry = entry?;
+        walk.into_iter().par_bridge().for_each(|entry| {
+            let Ok(entry) = entry else {
+                return;
+            };
 
             if entry.path().is_file()
                 && entry.path().extension() == Some(std::ffi::OsStr::from_bytes("py".as_bytes()))
             {
-                let success = parse_file(
+                let Ok(success) = parse_file(
                     entry.path(),
                     args.forbid_no_docstring,
                     args.forbid_no_args_in_docstring,
                     args.forbid_untyped_docstrings,
-                )?;
+                ) else {
+                    return;
+                };
 
                 if !success {
-                    global_success = false;
+                    global_success.swap(false, std::sync::atomic::Ordering::Relaxed);
                 }
             }
-        }
+        });
 
-        global_success
+        global_success.into_inner()
     } else {
         parse_file(
             path,
