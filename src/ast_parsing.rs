@@ -1,7 +1,6 @@
 use crate::parsing::extract_docstring;
 use tree_sitter::{Node, Point};
 
-#[derive(Debug)]
 pub(crate) struct FunctionInfo<'a> {
     pub(crate) params: Vec<(&'a str, Option<&'a str>)>,
     pub(crate) docstring: Option<&'a str>,

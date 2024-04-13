@@ -132,6 +132,7 @@ fn is_function_info_valid(
 
 #[cfg(test)]
 mod tests {
+    use tracing_test::traced_test;
     use tree_sitter::Point;
 
     use super::*;
@@ -147,6 +148,33 @@ mod tests {
     }
 
     #[test]
+    #[traced_test]
+    fn test_success_no_docstring() {
+        let function_info = FunctionInfo {
+            params: vec![("x", Some("int")), ("y", Some("str"))],
+            docstring: None,
+            start_position: Point { row: 0, column: 0 },
+        };
+
+        assert!(is_function_info_valid(
+            &function_info,
+            None,
+            true,
+            true,
+            true
+        ));
+
+        assert!(!is_function_info_valid(
+            &function_info,
+            None,
+            false,
+            true,
+            true
+        ));
+    }
+
+    #[test]
+    #[traced_test]
     fn test_out_of_order() {
         let function_info = FunctionInfo {
             params: vec![("x", Some("int")), ("y", Some("str"))],
@@ -196,6 +224,7 @@ mod tests {
     }
 
     #[test]
+    #[traced_test]
     fn test_check_function_info() {
         let function_info = FunctionInfo {
             params: vec![("x", Some("int")), ("y", Some("str"))],
@@ -222,6 +251,7 @@ mod tests {
     }
 
     #[test]
+    #[traced_test]
     fn test_file() {
         let mut parser = get_parser();
 
@@ -250,6 +280,7 @@ def other_func(x,y,z):
     }
 
     #[test]
+    #[traced_test]
     fn test_nesting() {
         let mut parser = get_parser();
 
@@ -286,5 +317,36 @@ def other_func(x,y,z):
         let x = respects_rules(&mut parser, source_code, None, None, true, true, false);
 
         assert!(x);
+    }
+
+    #[test]
+    fn test_from_path() {
+        let mut parser = get_parser();
+
+        let path = std::path::PathBuf::from("test_folder/test.py");
+        let source_code = std::fs::read_to_string("test_folder/test.py").unwrap();
+
+        assert!(respects_rules(
+            &mut parser,
+            &source_code,
+            None,
+            Some(&path),
+            true,
+            true,
+            true,
+        ));
+
+        let path = std::path::PathBuf::from("test_folder/test_cp.py");
+        let source_code = std::fs::read_to_string("test_folder/test_cp.py").unwrap();
+
+        assert!(!respects_rules(
+            &mut parser,
+            &source_code,
+            None,
+            Some(&path),
+            true,
+            true,
+            true,
+        ));
     }
 }
