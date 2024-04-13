@@ -136,7 +136,7 @@ fn is_function_info_valid(
         if !succeed_if_no_docstring {
             tracing::event!(
                 Level::ERROR,
-                "{}Docstring missing at function starting on: {:?}",
+                "{}Docstring missing at function starting on: {}",
                 path,
                 info.start_position
             );
@@ -151,7 +151,7 @@ fn is_function_info_valid(
         if !succeed_if_no_args_in_docstring {
             tracing::event!(
                 Level::ERROR,
-                "{}Args missing from docstring at function starting on: {:?}",
+                "{}Args missing from docstring at function starting on: {}",
                 path,
                 info.start_position
             );
@@ -171,7 +171,7 @@ fn is_function_info_valid(
         if !is_valid {
             tracing::event!(
                 Level::ERROR,
-                "{}Docstring args not matching at function starting on {:?}",
+                "{}Docstring args not matching at function starting on {}",
                 path,
                 info.start_position
             );
