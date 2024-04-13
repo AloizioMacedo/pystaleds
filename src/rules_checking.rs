@@ -279,11 +279,16 @@ mod tests {
                 """
                 Hello!
 
-                Parameters:
+                Parameters
+                ----------
                 x
                     Hehehe
                 y
                     Nope.
+
+                Returns
+                ------
+                ...
                 """"#,
             ),
             start_position: Point { row: 0, column: 0 },
@@ -312,6 +317,50 @@ mod tests {
                 Args:
                     x (int): Hehehe.
                     y: Nope.
+
+                Returns:
+                    ...
+                """"#,
+            ),
+            start_position: Point { row: 0, column: 0 },
+        };
+
+        assert!(is_function_info_valid(
+            &function_info,
+            None,
+            false,
+            false,
+            true,
+            DocstringStyle::Google
+        ));
+
+        assert!(is_function_info_valid(
+            &function_info,
+            None,
+            false,
+            false,
+            true,
+            DocstringStyle::AutoDetect
+        ));
+    }
+
+    #[test]
+    #[traced_test]
+    fn ignore_edge_case() {
+        let function_info = FunctionInfo {
+            params: vec![("x", Some("int")), ("y", Some("str"))],
+            docstring: Some(
+                r#"
+                """
+                Hello!
+
+                Args:
+                    x (int): Hehehe.
+                    KLJZXKLC
+                    y: Nope.
+
+                Returns:
+                    ...
                 """"#,
             ),
             start_position: Point { row: 0, column: 0 },

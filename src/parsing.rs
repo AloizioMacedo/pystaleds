@@ -118,6 +118,14 @@ mod tests {
         assert_eq!(args[1].0, "y");
 
         assert_eq!(args.len(), 2);
+
+        let docstring = r#"
+            """Hey.
+
+            Parameters
+            """#;
+
+        assert!(parse_numpy_docstring(docstring).is_none());
     }
 
     #[test]
@@ -142,5 +150,9 @@ mod tests {
                 y: Second var.
             """"#
         );
+
+        let not_docstring = "Not a docstring.";
+
+        assert!(extract_docstring(not_docstring).is_none());
     }
 }
