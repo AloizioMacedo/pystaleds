@@ -35,6 +35,38 @@ pub fn parse_google_docstring(text: &str) -> Option<Vec<(&str, Option<&str>)>> {
     Some(params)
 }
 
+pub fn parse_numpy_docstring(text: &str) -> Option<Vec<(&str, Option<&str>)>> {
+    let (_, mut args) = text.split_once("Parameters\n")?;
+
+    if let Some(c) = args.find("Returns\n") {
+        args = &args[..c];
+    };
+
+    let first_line = args.lines().nth(1)?;
+
+    let indentation = first_line.chars().take_while(|c| c.is_whitespace()).count();
+
+    let mut params = Vec::new();
+
+    for line in args.lines().skip(1) {
+        if line.chars().take(indentation).all(|c| c.is_whitespace())
+            && line.chars().nth(indentation).map(|c| !c.is_whitespace()) == Some(true)
+            && !line.trim().trim_end_matches(&['\'', '\"']).is_empty()
+        {
+            let Some((arg, typ)) = line.split_once(':') else {
+                params.push((line.trim(), None));
+                continue;
+            };
+
+            let typ = typ.trim();
+
+            params.push((arg.trim(), Some(typ)));
+        }
+    }
+
+    Some(params)
+}
+
 pub fn extract_docstring(content: &str) -> Option<&str> {
     if !content.starts_with(r#"""""#) {
         return None;
@@ -50,7 +82,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_works() {
+    fn google() {
         let docstring = r#"
             """Hey.
 
@@ -63,6 +95,29 @@ mod tests {
 
         assert_eq!(args[0].1.unwrap(), "int");
         assert_eq!(args[1].0, "y");
+
+        assert_eq!(args.len(), 2);
+    }
+
+    #[test]
+    fn numpy() {
+        let docstring = r#"
+            """Hey.
+
+            Parameters
+            ----------
+            x: int
+                First var.
+            y
+                Second var.
+            """#;
+
+        let args = parse_numpy_docstring(docstring).unwrap();
+
+        assert_eq!(args[0].1.unwrap(), "int");
+        assert_eq!(args[1].0, "y");
+
+        assert_eq!(args.len(), 2);
     }
 
     #[test]
