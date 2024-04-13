@@ -3,7 +3,7 @@ def f(x: int):
     Hey.
 
     Args:
-        x (int): _description_
+        x (str): _description_
 
     Returns:
         _type_: _description_
