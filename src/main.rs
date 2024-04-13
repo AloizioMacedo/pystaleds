@@ -1,7 +1,8 @@
-use std::{os::unix::ffi::OsStrExt, path::Path, sync::atomic::AtomicBool};
+use std::{env::set_current_dir, os::unix::ffi::OsStrExt, path::Path, sync::atomic::AtomicBool};
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
+use glob::glob;
 use pydcstrngs::parse_file_contents;
 use rayon::prelude::*;
 use walkdir::DirEntry;
@@ -11,9 +12,9 @@ use walkdir::DirEntry;
 struct Args {
     path: String,
 
-    #[arg(long, default_value_t = true, alias = "nh")]
+    #[arg(long, default_value_t = false, alias = "ah")]
     /// Will ignore hidden files.
-    ignore_hidden: bool,
+    allow_hidden: bool,
 
     #[arg(long, default_value_t = false, alias = "nd")]
     /// Will consider an error for a docstring to be absent.
@@ -27,6 +28,11 @@ struct Args {
     /// Will consider an error for an arg in docstring to be untyped. Otherwise, only
     /// raises an error if the docstring's type and the signature's type are mismatched.
     forbid_untyped_docstrings: bool,
+
+    #[arg(long, alias = "g")]
+    /// Runs over glob matches considering root to be the path specified in the command.
+    /// Disconsiders the ignore_hidden flag.
+    glob: Option<String>,
 }
 
 fn is_hidden(e: &DirEntry) -> bool {
@@ -49,62 +55,104 @@ fn main() -> Result<()> {
 
     let path = Path::new(&args.path);
 
-    let success = if path.is_dir() {
-        let walk = walkdir::WalkDir::new(path);
+    let success = if let Some(s) = args.glob {
+        set_current_dir(path)?;
 
         let global_success = AtomicBool::new(true);
 
-        walk.into_iter()
-            .filter_entry(|e| {
-                if args.ignore_hidden {
-                    !is_hidden(e)
-                } else {
-                    true
-                }
-            })
-            .par_bridge()
-            .for_each(|entry| {
-                let Ok(entry) = entry else {
+        let paths = glob(&s).unwrap();
+
+        paths.into_iter().par_bridge().for_each(|entry| {
+            let Ok(entry) = entry else {
+                return;
+            };
+
+            let entry = entry.as_path();
+
+            if entry.is_file()
+                && entry.extension() == Some(std::ffi::OsStr::from_bytes("py".as_bytes()))
+            {
+                let span =
+                    tracing::error_span!("file", file_name = entry.as_os_str().to_str().unwrap());
+
+                _ = span.enter();
+
+                let Ok(success) = parse_file(
+                    entry,
+                    args.forbid_no_docstring,
+                    args.forbid_no_args_in_docstring,
+                    args.forbid_untyped_docstrings,
+                ) else {
                     return;
                 };
 
-                if entry.path().is_file()
-                    && entry.path().extension()
-                        == Some(std::ffi::OsStr::from_bytes("py".as_bytes()))
-                {
-                    let span = tracing::error_span!(
-                        "file",
-                        file_name = entry.path().as_os_str().to_str().unwrap()
-                    );
-
-                    _ = span.enter();
-
-                    let Ok(success) = parse_file(
-                        entry.path(),
-                        args.forbid_no_docstring,
-                        args.forbid_no_args_in_docstring,
-                        args.forbid_untyped_docstrings,
-                    ) else {
-                        return;
-                    };
-
-                    if !success {
-                        global_success.swap(false, std::sync::atomic::Ordering::Relaxed);
-                    }
+                if !success {
+                    global_success.swap(false, std::sync::atomic::Ordering::Relaxed);
                 }
-            });
+            }
+        });
 
         global_success.into_inner()
     } else {
-        let span = tracing::error_span!("file", file_name = path.as_os_str().to_str().unwrap());
-        _ = span.enter();
+        let success = if path.is_dir() {
+            let walk = walkdir::WalkDir::new(path);
 
-        parse_file(
-            path,
-            args.forbid_no_docstring,
-            args.forbid_no_args_in_docstring,
-            args.forbid_untyped_docstrings,
-        )?
+            let global_success = AtomicBool::new(true);
+
+            walk.into_iter()
+                .filter_entry(|e| {
+                    if args.allow_hidden {
+                        true
+                    } else {
+                        !is_hidden(e)
+                    }
+                })
+                .par_bridge()
+                .for_each(|entry| {
+                    let Ok(entry) = entry else {
+                        return;
+                    };
+
+                    if entry.path().is_file()
+                        && entry.path().extension()
+                            == Some(std::ffi::OsStr::from_bytes("py".as_bytes()))
+                    {
+                        let span = tracing::error_span!(
+                            "file",
+                            file_name = entry.path().as_os_str().to_str().unwrap()
+                        );
+
+                        _ = span.enter();
+
+                        let Ok(success) = parse_file(
+                            entry.path(),
+                            args.forbid_no_docstring,
+                            args.forbid_no_args_in_docstring,
+                            args.forbid_untyped_docstrings,
+                        ) else {
+                            return;
+                        };
+
+                        if !success {
+                            global_success.swap(false, std::sync::atomic::Ordering::Relaxed);
+                        }
+                    }
+                });
+
+            global_success.into_inner()
+        } else {
+            let span = tracing::error_span!("file", file_name = path.as_os_str().to_str().unwrap());
+            _ = span.enter();
+
+            parse_file(
+                path,
+                args.forbid_no_docstring,
+                args.forbid_no_args_in_docstring,
+                args.forbid_untyped_docstrings,
+            )?
+        };
+
+        success
     };
 
     if success {
