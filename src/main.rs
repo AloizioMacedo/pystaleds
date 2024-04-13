@@ -24,7 +24,8 @@ struct Args {
     forbid_no_args_in_docstring: bool,
 
     #[arg(long, default_value_t = false, alias = "nu")]
-    /// Will consider an error for an arg in docstring to be untyped.
+    /// Will consider an error for an arg in docstring to be untyped. Otherwise, only
+    /// raises an error if the docstring's type and the signature's type are mismatched.
     forbid_untyped_docstrings: bool,
 }
 
