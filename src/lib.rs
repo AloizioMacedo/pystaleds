@@ -15,7 +15,7 @@ pub struct FunctionInfo<'a> {
     start_position: Point,
 }
 
-pub fn parse_file_contents(
+pub fn respects_rules(
     parser: &mut Parser,
     source_code: &str,
     old_tree: Option<&Tree>,
@@ -256,7 +256,7 @@ def other_func(x,y,z):
     return x+y+2*z
 "#;
 
-        let x = parse_file_contents(&mut parser, source_code, None, None, false, true, true);
+        let x = respects_rules(&mut parser, source_code, None, None, false, true, true);
 
         assert!(x);
     }
@@ -278,7 +278,7 @@ def other_func(x,y,z):
     return x+y
 "#;
 
-        let x = parse_file_contents(&mut parser, source_code, None, None, true, true, false);
+        let x = respects_rules(&mut parser, source_code, None, None, true, true, false);
 
         assert!(!x);
 
@@ -295,7 +295,7 @@ def other_func(x,y,z):
     return x+y
 "#;
 
-        let x = parse_file_contents(&mut parser, source_code, None, None, true, true, false);
+        let x = respects_rules(&mut parser, source_code, None, None, true, true, false);
 
         assert!(x);
     }

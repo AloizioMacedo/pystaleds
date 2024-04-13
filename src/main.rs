@@ -3,7 +3,7 @@ use std::{env::set_current_dir, os::unix::ffi::OsStrExt, path::Path, sync::atomi
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use glob::glob;
-use pydcstrngs::parse_file_contents;
+use pydcstrngs::respects_rules;
 use rayon::prelude::*;
 use walkdir::DirEntry;
 
@@ -173,7 +173,7 @@ fn parse_file(
 
     let contents = std::fs::read_to_string(path)?;
 
-    let success = parse_file_contents(
+    let success = respects_rules(
         &mut parser,
         &contents,
         None,
