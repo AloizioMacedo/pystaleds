@@ -1,6 +1,8 @@
 mod debug;
 mod parsing;
 
+use std::path::Path;
+
 use tracing::Level;
 use tree_sitter::{Node, Parser, Point, Tree, TreeCursor};
 
@@ -17,6 +19,7 @@ pub fn parse_file_contents(
     parser: &mut Parser,
     source_code: &str,
     old_tree: Option<&Tree>,
+    path: Option<&Path>,
     succeed_if_no_docstring: bool,
     succeed_if_no_args_in_docstring: bool,
     docstring_should_always_be_typed: bool,
@@ -34,6 +37,7 @@ pub fn parse_file_contents(
         if let Some(info) = fs {
             if !is_function_info_valid(
                 &info,
+                path,
                 succeed_if_no_docstring,
                 succeed_if_no_args_in_docstring,
                 docstring_should_always_be_typed,
@@ -121,15 +125,19 @@ fn get_function_signature<'a>(node: &Node, source_code: &'a str) -> Option<Funct
 
 fn is_function_info_valid(
     info: &FunctionInfo,
+    path: Option<&Path>,
     succeed_if_no_docstring: bool,
     succeed_if_no_args_in_docstring: bool,
     succeed_if_docstrings_are_not_typed: bool,
 ) -> bool {
+    let path = path.map_or("".to_string(), |x| x.to_string_lossy().to_string() + ": ");
+
     let Some(docstring) = info.docstring else {
         if !succeed_if_no_docstring {
             tracing::event!(
                 Level::ERROR,
-                "Docstring missing at function starting on: {:?}",
+                "{}Docstring missing at function starting on: {:?}",
+                path,
                 info.start_position
             );
         }
@@ -143,7 +151,8 @@ fn is_function_info_valid(
         if !succeed_if_no_args_in_docstring {
             tracing::event!(
                 Level::ERROR,
-                "Args missing from docstring at function starting on: {:?}",
+                "{}Args missing from docstring at function starting on: {:?}",
+                path,
                 info.start_position
             );
         }
@@ -162,7 +171,8 @@ fn is_function_info_valid(
         if !is_valid {
             tracing::event!(
                 Level::ERROR,
-                "Docstring args not matching at function starting on {:?}",
+                "{}Docstring args not matching at function starting on {:?}",
+                path,
                 info.start_position
             );
         }
@@ -214,7 +224,13 @@ mod tests {
             start_position: Point { row: 0, column: 0 },
         };
 
-        assert!(is_function_info_valid(&function_info, false, false, true));
+        assert!(is_function_info_valid(
+            &function_info,
+            None,
+            false,
+            false,
+            true
+        ));
     }
 
     #[test]
@@ -240,7 +256,7 @@ def other_func(x,y,z):
     return x+y+2*z
 "#;
 
-        let x = parse_file_contents(&mut parser, source_code, None, false, true, true);
+        let x = parse_file_contents(&mut parser, source_code, None, None, false, true, true);
 
         assert!(x);
     }

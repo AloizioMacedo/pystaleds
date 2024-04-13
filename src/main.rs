@@ -100,6 +100,7 @@ fn parse_file(
         &mut parser,
         &contents,
         None,
+        Some(path),
         !forbid_no_docstring,
         !forbid_no_args_in_docstring,
         !forbid_untyped_docstrings,
