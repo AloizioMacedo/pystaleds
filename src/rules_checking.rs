@@ -117,12 +117,16 @@ fn is_function_info_valid(
     };
 
     if succeed_if_docstrings_are_not_typed {
-        let is_valid = args_from_docstring.iter().zip(&info.params).all(
-            |((param1, type1), (param2, type2))| match (type1, type2) {
-                (Some(type1), Some(type2)) => param1 == param2 && type1 == type2,
-                (_, _) => param1 == param2,
-            },
-        );
+        let is_valid = if args_from_docstring.len() == info.params.len() {
+            args_from_docstring.iter().zip(&info.params).all(
+                |((param1, type1), (param2, type2))| match (type1, type2) {
+                    (Some(type1), Some(type2)) => param1 == param2 && type1 == type2,
+                    (_, _) => param1 == param2,
+                },
+            )
+        } else {
+            false
+        };
 
         if !is_valid {
             tracing::event!(
@@ -374,6 +378,84 @@ mod tests {
             true,
             DocstringStyle::Google
         ));
+    }
+
+    #[test]
+    #[traced_test]
+    fn test_more_and_less_args() {
+        let mut parser = get_parser();
+
+        let source_code = r#"def sub(x, y):
+    """This is a multi-line docstring.
+
+    And this is the rest.
+    Args:
+        x: Hehehe.
+        y: Nope.
+    """
+    return x-y
+"#;
+
+        let x = respects_rules(
+            &mut parser,
+            source_code,
+            None,
+            None,
+            true,
+            true,
+            true,
+            DocstringStyle::Google,
+        );
+
+        assert!(x);
+
+        let source_code = r#"def sub(x, y):
+    """This is a multi-line docstring.
+
+    And this is the rest.
+    Args:
+        y: Nope.
+    """
+    return x-y
+"#;
+
+        let x = respects_rules(
+            &mut parser,
+            source_code,
+            None,
+            None,
+            true,
+            true,
+            true,
+            DocstringStyle::Google,
+        );
+
+        assert!(!x);
+
+        let source_code = r#"def sub(x, y):
+    """This is a multi-line docstring.
+
+    And this is the rest.
+    Args:
+        x: Hehe.
+        y: Nope.
+        z: This shouldn't exist.
+    """
+    return x-y
+"#;
+
+        let x = respects_rules(
+            &mut parser,
+            source_code,
+            None,
+            None,
+            true,
+            true,
+            true,
+            DocstringStyle::Google,
+        );
+
+        assert!(!x);
     }
 
     #[test]
