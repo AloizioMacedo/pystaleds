@@ -36,6 +36,11 @@ fn is_hidden(e: &DirEntry) -> bool {
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt().init();
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(0)
+        .stack_size(100_000_000)
+        .build_global()
+        .unwrap();
 
     let args = Args::parse();
 
