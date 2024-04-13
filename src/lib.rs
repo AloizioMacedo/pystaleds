@@ -225,7 +225,7 @@ mod tests {
     """This is a docstring."""
     return x+y
 
-def sub(x,y):
+def sub(x, y):
     """This is a multi-line docstring.
 
     And this is the rest.
@@ -242,6 +242,6 @@ def other_func(x,y,z):
 
         let x = parse_file_contents(&mut parser, source_code, None, false, true, true);
 
-        assert!(!x);
+        assert!(x);
     }
 }
