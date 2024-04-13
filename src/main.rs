@@ -3,7 +3,7 @@ use std::{env::set_current_dir, os::unix::ffi::OsStrExt, path::Path, sync::atomi
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use glob::glob;
-use pydcstrngs::rules_checking::respects_rules;
+use pydcstrngs::rules_checking::{respects_rules, DocstringStyle};
 use rayon::prelude::*;
 use walkdir::DirEntry;
 
@@ -21,7 +21,7 @@ struct Args {
     forbid_no_docstring: bool,
 
     #[arg(long, default_value_t = false, alias = "na")]
-    /// Will consider an error for an "Args" section to be absent.
+    /// Will consider an error for an "Args" or "Parameters" section to be absent.
     forbid_no_args_in_docstring: bool,
 
     #[arg(long, default_value_t = false, alias = "nu")]
@@ -33,6 +33,10 @@ struct Args {
     /// Runs over glob matches considering root to be the path specified in the command.
     /// Disconsiders the allow_hidden flag.
     glob: Option<String>,
+
+    #[arg(long, default_value_t, value_enum, alias = "s")]
+    /// Determines the docstring style to consider for parsing.
+    docstyle: DocstringStyle,
 }
 
 fn is_hidden(e: &DirEntry) -> bool {
@@ -47,7 +51,7 @@ fn main() -> Result<()> {
     tracing_subscriber::fmt().with_writer(non_blocking).init();
     rayon::ThreadPoolBuilder::new()
         .num_threads(0)
-        .stack_size(10_000_000)
+        .stack_size(100_000_000) // TODO: Make the algorithm non-recursive and remove the stack expansion.
         .build_global()
         .unwrap();
 
@@ -108,6 +112,7 @@ fn main() -> Result<()> {
                 args.forbid_no_docstring,
                 args.forbid_no_args_in_docstring,
                 args.forbid_untyped_docstrings,
+                args.docstyle,
             )?
         };
 
@@ -132,6 +137,7 @@ fn assess_success(entry: &Path, args: &Args, global_success: &AtomicBool) {
             args.forbid_no_docstring,
             args.forbid_no_args_in_docstring,
             args.forbid_untyped_docstrings,
+            args.docstyle,
         ) else {
             return;
         };
@@ -147,6 +153,7 @@ fn is_file_compliant(
     forbid_no_docstring: bool,
     forbid_no_args_in_docstring: bool,
     forbid_untyped_docstrings: bool,
+    docstyle: DocstringStyle,
 ) -> Result<bool> {
     let mut parser = tree_sitter::Parser::new();
     parser.set_language(&tree_sitter_python::language())?;
@@ -161,6 +168,7 @@ fn is_file_compliant(
         !forbid_no_docstring,
         !forbid_no_args_in_docstring,
         !forbid_untyped_docstrings,
+        docstyle,
     );
 
     Ok(success)

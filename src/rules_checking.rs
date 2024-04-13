@@ -1,10 +1,19 @@
 use std::path::Path;
 
+use clap::ValueEnum;
 use tracing::Level;
 use tree_sitter::{Node, Parser, Tree, TreeCursor};
 
 use crate::ast_parsing::{get_function_signature, FunctionInfo};
-use crate::parsing::parse_google_docstring;
+use crate::parsing::{parse_google_docstring, parse_numpy_docstring};
+
+#[derive(Default, Clone, Copy, ValueEnum)]
+pub enum DocstringStyle {
+    Google,
+    Numpy,
+    #[default]
+    AutoDetect,
+}
 
 fn walk_rec<F>(cursor: &mut TreeCursor, closure: &mut F)
 where
@@ -25,6 +34,7 @@ where
     cursor.goto_parent();
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn respects_rules(
     parser: &mut Parser,
     source_code: &str,
@@ -33,6 +43,7 @@ pub fn respects_rules(
     succeed_if_no_docstring: bool,
     succeed_if_no_args_in_docstring: bool,
     docstring_should_always_be_typed: bool,
+    docstyle: DocstringStyle,
 ) -> bool {
     let tree = parser
         .parse(source_code, old_tree)
@@ -51,6 +62,7 @@ pub fn respects_rules(
                 succeed_if_no_docstring,
                 succeed_if_no_args_in_docstring,
                 docstring_should_always_be_typed,
+                docstyle,
             ) {
                 success = false;
             }
@@ -66,6 +78,7 @@ fn is_function_info_valid(
     succeed_if_no_docstring: bool,
     succeed_if_no_args_in_docstring: bool,
     succeed_if_docstrings_are_not_typed: bool,
+    docstyle: DocstringStyle,
 ) -> bool {
     let path = path.map_or("".to_string(), |x| x.to_string_lossy().to_string() + ": ");
 
@@ -82,7 +95,13 @@ fn is_function_info_valid(
         return succeed_if_no_docstring;
     };
 
-    let args_from_docstring = parse_google_docstring(docstring);
+    let args_from_docstring = match docstyle {
+        DocstringStyle::Google => parse_google_docstring(docstring),
+        DocstringStyle::Numpy => parse_numpy_docstring(docstring),
+        DocstringStyle::AutoDetect => {
+            parse_google_docstring(docstring).or(parse_numpy_docstring(docstring))
+        }
+    };
 
     let Some(args_from_docstring) = args_from_docstring else {
         if !succeed_if_no_args_in_docstring {
@@ -161,7 +180,8 @@ mod tests {
             None,
             true,
             true,
-            true
+            true,
+            DocstringStyle::AutoDetect
         ));
 
         assert!(!is_function_info_valid(
@@ -169,7 +189,8 @@ mod tests {
             None,
             false,
             true,
-            true
+            true,
+            DocstringStyle::AutoDetect
         ));
     }
 
@@ -196,7 +217,8 @@ mod tests {
             None,
             true,
             true,
-            true
+            true,
+            DocstringStyle::Google
         ));
 
         let function_info = FunctionInfo {
@@ -219,7 +241,61 @@ mod tests {
             None,
             true,
             true,
-            true
+            true,
+            DocstringStyle::Google
+        ));
+
+        let function_info = FunctionInfo {
+            params: vec![("x", Some("int")), ("y", Some("str"))],
+            docstring: Some(
+                r#"
+                """
+                Hello!
+
+                Parameters
+                ----------
+                y
+                    Nope
+                x
+                    Hehehe
+                """"#,
+            ),
+            start_position: Point { row: 0, column: 0 },
+        };
+
+        assert!(!is_function_info_valid(
+            &function_info,
+            None,
+            true,
+            true,
+            true,
+            DocstringStyle::Numpy
+        ));
+
+        let function_info = FunctionInfo {
+            params: vec![("x", Some("int")), ("y", Some("str"))],
+            docstring: Some(
+                r#"
+                """
+                Hello!
+
+                Parameters:
+                x
+                    Hehehe
+                y
+                    Nope.
+                """"#,
+            ),
+            start_position: Point { row: 0, column: 0 },
+        };
+
+        assert!(is_function_info_valid(
+            &function_info,
+            None,
+            true,
+            true,
+            true,
+            DocstringStyle::Numpy
         ));
     }
 
@@ -246,7 +322,8 @@ mod tests {
             None,
             false,
             false,
-            true
+            true,
+            DocstringStyle::Google
         ));
     }
 
@@ -274,7 +351,16 @@ def other_func(x,y,z):
     return x+y+2*z
 "#;
 
-        let x = respects_rules(&mut parser, source_code, None, None, false, true, true);
+        let x = respects_rules(
+            &mut parser,
+            source_code,
+            None,
+            None,
+            false,
+            true,
+            true,
+            DocstringStyle::Google,
+        );
 
         assert!(x);
     }
@@ -297,7 +383,16 @@ def other_func(x,y,z):
     return x+y
 "#;
 
-        let x = respects_rules(&mut parser, source_code, None, None, true, true, false);
+        let x = respects_rules(
+            &mut parser,
+            source_code,
+            None,
+            None,
+            true,
+            true,
+            false,
+            DocstringStyle::Google,
+        );
 
         assert!(!x);
 
@@ -314,7 +409,16 @@ def other_func(x,y,z):
     return x+y
 "#;
 
-        let x = respects_rules(&mut parser, source_code, None, None, true, true, false);
+        let x = respects_rules(
+            &mut parser,
+            source_code,
+            None,
+            None,
+            true,
+            true,
+            false,
+            DocstringStyle::Google,
+        );
 
         assert!(x);
     }
@@ -334,6 +438,7 @@ def other_func(x,y,z):
             true,
             true,
             true,
+            DocstringStyle::Google
         ));
 
         let path = std::path::PathBuf::from("test_folder/test_cp.py");
@@ -347,6 +452,7 @@ def other_func(x,y,z):
             true,
             true,
             true,
+            DocstringStyle::Google
         ));
     }
 }
