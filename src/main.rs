@@ -48,7 +48,10 @@ fn is_hidden(e: &DirEntry) -> bool {
 fn main() -> Result<()> {
     let (non_blocking, _guard) = tracing_appender::non_blocking(std::io::stderr());
 
-    tracing_subscriber::fmt().with_writer(non_blocking).init();
+    tracing_subscriber::fmt()
+        .without_time()
+        .with_writer(non_blocking)
+        .init();
     rayon::ThreadPoolBuilder::new()
         .num_threads(0)
         .stack_size(100_000_000) // TODO: Make the algorithm non-recursive and remove the stack expansion.
