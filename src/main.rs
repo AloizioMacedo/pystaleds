@@ -47,7 +47,7 @@ fn main() -> Result<()> {
     tracing_subscriber::fmt().with_writer(non_blocking).init();
     rayon::ThreadPoolBuilder::new()
         .num_threads(0)
-        .stack_size(100_000_000)
+        .stack_size(10_000_000)
         .build_global()
         .unwrap();
 
