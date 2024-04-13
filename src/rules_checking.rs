@@ -378,6 +378,44 @@ mod tests {
 
     #[test]
     #[traced_test]
+    fn missing_args_docstring() {
+        let mut parser = get_parser();
+
+        let source_code = r#"def add(x: int,y):
+    """This is a docstring."""
+    return x+y
+
+def sub(x, y):
+    """This is a multi-line docstring.
+
+    And this is the rest.
+    Args:
+        x (int): Hehehe.
+        y (int): Nope.
+    """
+    return x-y
+
+def other_func(x,y,z):
+    """This is just a throw-away string!"""
+    return x+y+2*z
+"#;
+
+        let x = respects_rules(
+            &mut parser,
+            source_code,
+            None,
+            None,
+            false,
+            false,
+            true,
+            DocstringStyle::Google,
+        );
+
+        assert!(!x);
+    }
+
+    #[test]
+    #[traced_test]
     fn test_file() {
         let mut parser = get_parser();
 
