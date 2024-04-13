@@ -260,4 +260,43 @@ def other_func(x,y,z):
 
         assert!(x);
     }
+
+    #[test]
+    fn test_nesting() {
+        let mut parser = get_parser();
+
+        let source_code = r#"def add(x: int,y):
+    """This is a docstring."""
+    def sub(x: int, y: int):
+        """This is a nested docstring.
+
+        Args:
+            x (int): Haha.
+            y (str): Should error!
+        """
+        return x-y
+    return x+y
+"#;
+
+        let x = parse_file_contents(&mut parser, source_code, None, None, true, true, false);
+
+        assert!(!x);
+
+        let source_code = r#"def add(x: int,y):
+    """This is a docstring."""
+    def sub(x: int, y: int):
+        """This is a nested docstring.
+
+        Args:
+            x (int): Haha.
+            y (int): Should error!
+        """
+        return x-y
+    return x+y
+"#;
+
+        let x = parse_file_contents(&mut parser, source_code, None, None, true, true, false);
+
+        assert!(x);
+    }
 }
