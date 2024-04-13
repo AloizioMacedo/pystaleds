@@ -147,6 +147,55 @@ mod tests {
     }
 
     #[test]
+    fn test_out_of_order() {
+        let function_info = FunctionInfo {
+            params: vec![("x", Some("int")), ("y", Some("str"))],
+            docstring: Some(
+                r#"
+                """
+                Hello!
+
+                Args:
+                    y: Nope.
+                    x: Hehehe.
+                """"#,
+            ),
+            start_position: Point { row: 0, column: 0 },
+        };
+
+        assert!(!is_function_info_valid(
+            &function_info,
+            None,
+            true,
+            true,
+            true
+        ));
+
+        let function_info = FunctionInfo {
+            params: vec![("x", Some("int")), ("y", Some("str"))],
+            docstring: Some(
+                r#"
+                """
+                Hello!
+
+                Args:
+                    x: Hehehe.
+                    y: Nope.
+                """"#,
+            ),
+            start_position: Point { row: 0, column: 0 },
+        };
+
+        assert!(is_function_info_valid(
+            &function_info,
+            None,
+            true,
+            true,
+            true
+        ));
+    }
+
+    #[test]
     fn test_check_function_info() {
         let function_info = FunctionInfo {
             params: vec![("x", Some("int")), ("y", Some("str"))],
