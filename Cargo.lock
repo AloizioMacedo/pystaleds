@@ -345,27 +345,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pydcstrngs"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cc",
- "clap",
- "glob",
- "pyo3",
- "rayon",
- "regex",
- "thiserror",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
- "tracing-test",
- "tree-sitter",
- "tree-sitter-python",
- "walkdir",
-]
-
-[[package]]
 name = "pyo3"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -426,6 +405,27 @@ dependencies = [
  "pyo3-build-config",
  "quote",
  "syn 2.0.58",
+]
+
+[[package]]
+name = "pystaleds"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cc",
+ "clap",
+ "glob",
+ "pyo3",
+ "rayon",
+ "regex",
+ "thiserror",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+ "tracing-test",
+ "tree-sitter",
+ "tree-sitter-python",
+ "walkdir",
 ]
 
 [[package]]
