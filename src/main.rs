@@ -55,12 +55,12 @@ fn main() -> Result<()> {
 
     let path = Path::new(&args.path);
 
-    let success = if let Some(s) = args.glob {
+    let success = if let Some(s) = &args.glob {
         set_current_dir(path)?;
 
         let global_success = AtomicBool::new(true);
 
-        let paths = glob(&s).unwrap();
+        let paths = glob(s).unwrap();
 
         paths.into_iter().par_bridge().for_each(|entry| {
             let Ok(entry) = entry else {
@@ -69,27 +69,7 @@ fn main() -> Result<()> {
 
             let entry = entry.as_path();
 
-            if entry.is_file()
-                && entry.extension() == Some(std::ffi::OsStr::from_bytes("py".as_bytes()))
-            {
-                let span =
-                    tracing::error_span!("file", file_name = entry.as_os_str().to_str().unwrap());
-
-                _ = span.enter();
-
-                let Ok(success) = parse_file(
-                    entry,
-                    args.forbid_no_docstring,
-                    args.forbid_no_args_in_docstring,
-                    args.forbid_untyped_docstrings,
-                ) else {
-                    return;
-                };
-
-                if !success {
-                    global_success.swap(false, std::sync::atomic::Ordering::Relaxed);
-                }
-            }
+            assess_success(entry, &args, &global_success);
         });
 
         global_success.into_inner()
@@ -113,30 +93,9 @@ fn main() -> Result<()> {
                         return;
                     };
 
-                    if entry.path().is_file()
-                        && entry.path().extension()
-                            == Some(std::ffi::OsStr::from_bytes("py".as_bytes()))
-                    {
-                        let span = tracing::error_span!(
-                            "file",
-                            file_name = entry.path().as_os_str().to_str().unwrap()
-                        );
+                    let entry = entry.path();
 
-                        _ = span.enter();
-
-                        let Ok(success) = parse_file(
-                            entry.path(),
-                            args.forbid_no_docstring,
-                            args.forbid_no_args_in_docstring,
-                            args.forbid_untyped_docstrings,
-                        ) else {
-                            return;
-                        };
-
-                        if !success {
-                            global_success.swap(false, std::sync::atomic::Ordering::Relaxed);
-                        }
-                    }
+                    assess_success(entry, &args, &global_success)
                 });
 
             global_success.into_inner()
@@ -144,7 +103,7 @@ fn main() -> Result<()> {
             let span = tracing::error_span!("file", file_name = path.as_os_str().to_str().unwrap());
             _ = span.enter();
 
-            parse_file(
+            is_file_compliant(
                 path,
                 args.forbid_no_docstring,
                 args.forbid_no_args_in_docstring,
@@ -162,7 +121,28 @@ fn main() -> Result<()> {
     }
 }
 
-fn parse_file(
+fn assess_success(entry: &Path, args: &Args, global_success: &AtomicBool) {
+    if entry.is_file() && entry.extension() == Some(std::ffi::OsStr::from_bytes("py".as_bytes())) {
+        let span = tracing::error_span!("file", file_name = entry.as_os_str().to_str().unwrap());
+
+        _ = span.enter();
+
+        let Ok(success) = is_file_compliant(
+            entry,
+            args.forbid_no_docstring,
+            args.forbid_no_args_in_docstring,
+            args.forbid_untyped_docstrings,
+        ) else {
+            return;
+        };
+
+        if !success {
+            global_success.swap(false, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+}
+
+fn is_file_compliant(
     path: &Path,
     forbid_no_docstring: bool,
     forbid_no_args_in_docstring: bool,
