@@ -35,7 +35,9 @@ fn is_hidden(e: &DirEntry) -> bool {
 }
 
 fn main() -> Result<()> {
-    tracing_subscriber::fmt().init();
+    let (non_blocking, _guard) = tracing_appender::non_blocking(std::io::stderr());
+
+    tracing_subscriber::fmt().with_writer(non_blocking).init();
     rayon::ThreadPoolBuilder::new()
         .num_threads(0)
         .stack_size(100_000_000)
