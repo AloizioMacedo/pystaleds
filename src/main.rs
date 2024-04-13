@@ -31,7 +31,7 @@ struct Args {
 
     #[arg(long, alias = "g")]
     /// Runs over glob matches considering root to be the path specified in the command.
-    /// Disconsiders the ignore_hidden flag.
+    /// Disconsiders the allow_hidden flag.
     glob: Option<String>,
 }
 
