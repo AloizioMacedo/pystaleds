@@ -3,7 +3,7 @@ use std::{env::set_current_dir, os::unix::ffi::OsStrExt, path::Path, sync::atomi
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use glob::glob;
-use pydcstrngs::respects_rules;
+use pydcstrngs::rules_checking::respects_rules;
 use rayon::prelude::*;
 use walkdir::DirEntry;
 
