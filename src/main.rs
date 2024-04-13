@@ -1,4 +1,4 @@
-use std::{env::set_current_dir, os::unix::ffi::OsStrExt, path::Path, sync::atomic::AtomicBool};
+use std::{env::set_current_dir, path::Path, sync::atomic::AtomicBool};
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
@@ -130,7 +130,7 @@ fn main() -> Result<()> {
 }
 
 fn assess_success(entry: &Path, args: &Args, global_success: &AtomicBool) {
-    if entry.is_file() && entry.extension() == Some(std::ffi::OsStr::from_bytes("py".as_bytes())) {
+    if entry.is_file() && entry.extension() == Some(&std::ffi::OsString::from("py")) {
         let span = tracing::error_span!("file", file_name = entry.as_os_str().to_str().unwrap());
 
         _ = span.enter();
