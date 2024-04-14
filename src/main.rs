@@ -117,9 +117,9 @@ fn main() -> Result<()> {
                 args.forbid_untyped_docstrings,
                 args.docstyle,
             )? {
-                1
-            } else {
                 0
+            } else {
+                1
             }
         };
 
