@@ -166,13 +166,17 @@ pub fn parse_numpy_docstring(
 }
 
 pub fn extract_docstring(content: &str) -> Option<&str> {
-    if !content.starts_with(r#"""""#) {
-        return None;
+    if let Some(stripped_content) = content.strip_prefix(r#"""""#) {
+        let ending = stripped_content.find(r#"""""#)? + 6;
+
+        Some(&content[0..ending])
+    } else if let Some(stripped_content) = content.strip_prefix(r#"'''"#) {
+        let ending = stripped_content.find(r#"'''"#)? + 6;
+
+        Some(&content[0..ending])
+    } else {
+        None
     }
-
-    let ending = content[3..].find(r#"""""#)? + 6;
-
-    Some(&content[0..ending])
 }
 
 #[cfg(test)]
@@ -247,6 +251,27 @@ mod tests {
                 x (int): First var.
                 y: Second var.
             """"#
+        );
+
+        let docstring = r#"'''Hey.
+
+            Args:
+                x (int): First var.
+                y: Second var.
+            '''
+            x = 2
+            y = 3 + 5"#;
+
+        let docstring = extract_docstring(docstring).unwrap();
+
+        assert_eq!(
+            docstring,
+            r#"'''Hey.
+
+            Args:
+                x (int): First var.
+                y: Second var.
+            '''"#
         );
 
         let not_docstring = "Not a docstring.";
