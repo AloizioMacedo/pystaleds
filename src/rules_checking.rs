@@ -53,12 +53,14 @@ pub fn respects_rules(
 
     let mut success = true;
     let mut params = Vec::with_capacity(8);
+    let mut docstring_params_buffer = Vec::with_capacity(8);
 
     walk_rec(&mut cursor, &mut |node| {
         let fs = get_function_signature(node, source_code, &mut params);
         if let Some(info) = fs {
             if !is_function_info_valid(
-                &info,
+                info,
+                &mut docstring_params_buffer,
                 path,
                 succeed_if_no_docstring,
                 succeed_if_no_args_in_docstring,
@@ -67,15 +69,17 @@ pub fn respects_rules(
             ) {
                 success = false;
             }
+            docstring_params_buffer.clear();
         }
     });
 
     success
 }
 
-fn is_function_info_valid(
-    info: &FunctionInfo,
-    path: Option<&Path>,
+fn is_function_info_valid<'a: 'b, 'b>(
+    info: FunctionInfo<'a, 'b>,
+    docstring_buffer: &'b mut Vec<(&'a str, Option<&'a str>)>,
+    path: Option<&'a Path>,
     succeed_if_no_docstring: bool,
     succeed_if_no_args_in_docstring: bool,
     succeed_if_docstrings_are_not_typed: bool,
@@ -96,15 +100,14 @@ fn is_function_info_valid(
         return succeed_if_no_docstring;
     };
 
-    let args_from_docstring = match docstyle {
-        DocstringStyle::Google => parse_google_docstring(docstring),
-        DocstringStyle::Numpy => parse_numpy_docstring(docstring),
-        DocstringStyle::AutoDetect => {
-            parse_google_docstring(docstring).or(parse_numpy_docstring(docstring))
-        }
+    let built_docstring = match docstyle {
+        DocstringStyle::Google => parse_google_docstring(docstring, docstring_buffer),
+        DocstringStyle::Numpy => parse_numpy_docstring(docstring, docstring_buffer),
+        DocstringStyle::AutoDetect => parse_google_docstring(docstring, docstring_buffer)
+            .or(parse_numpy_docstring(docstring, docstring_buffer)),
     };
 
-    let Some(args_from_docstring) = args_from_docstring else {
+    let Some(()) = built_docstring else {
         if !succeed_if_no_args_in_docstring {
             tracing::event!(
                 Level::ERROR,
@@ -118,14 +121,13 @@ fn is_function_info_valid(
     };
 
     if succeed_if_docstrings_are_not_typed {
-        let is_valid = if args_from_docstring.len() == info.params.len() {
-            args_from_docstring
-                .iter()
-                .zip(info.params)
-                .all(|((param1, type1), (param2, type2))| match (type1, type2) {
+        let is_valid = if docstring_buffer.len() == info.params.len() {
+            docstring_buffer.iter().zip(info.params).all(
+                |((param1, type1), (param2, type2))| match (type1, type2) {
                     (Some(type1), Some(type2)) => param1 == param2 && type1 == type2,
                     (_, _) => param1 == param2,
-                })
+                },
+            )
         } else {
             false
         };
@@ -141,7 +143,7 @@ fn is_function_info_valid(
 
         is_valid
     } else {
-        let is_valid = args_from_docstring == info.params;
+        let is_valid = docstring_buffer == info.params;
 
         if !is_valid {
             tracing::event!(
@@ -181,8 +183,11 @@ mod tests {
             start_position: Point { row: 0, column: 0 },
         };
 
+        let mut buffer = Vec::new();
+
         assert!(is_function_info_valid(
-            &function_info,
+            function_info,
+            &mut buffer,
             None,
             true,
             true,
@@ -190,8 +195,11 @@ mod tests {
             DocstringStyle::AutoDetect
         ));
 
+        buffer.clear();
+
         assert!(!is_function_info_valid(
-            &function_info,
+            function_info,
+            &mut buffer,
             None,
             false,
             true,
@@ -217,9 +225,11 @@ mod tests {
             ),
             start_position: Point { row: 0, column: 0 },
         };
+        let mut buffer = Vec::new();
 
         assert!(!is_function_info_valid(
-            &function_info,
+            function_info,
+            &mut buffer,
             None,
             true,
             true,
@@ -242,8 +252,11 @@ mod tests {
             start_position: Point { row: 0, column: 0 },
         };
 
+        buffer.clear();
+
         assert!(is_function_info_valid(
-            &function_info,
+            function_info,
+            &mut buffer,
             None,
             true,
             true,
@@ -269,8 +282,11 @@ mod tests {
             start_position: Point { row: 0, column: 0 },
         };
 
+        buffer.clear();
+
         assert!(!is_function_info_valid(
-            &function_info,
+            function_info,
+            &mut buffer,
             None,
             true,
             true,
@@ -300,8 +316,11 @@ mod tests {
             start_position: Point { row: 0, column: 0 },
         };
 
+        buffer.clear();
+
         assert!(is_function_info_valid(
-            &function_info,
+            function_info,
+            &mut buffer,
             None,
             true,
             true,
@@ -331,8 +350,10 @@ mod tests {
             start_position: Point { row: 0, column: 0 },
         };
 
+        let mut buffer = Vec::new();
         assert!(is_function_info_valid(
-            &function_info,
+            function_info,
+            &mut buffer,
             None,
             false,
             false,
@@ -340,8 +361,11 @@ mod tests {
             DocstringStyle::Google
         ));
 
+        buffer.clear();
+
         assert!(is_function_info_valid(
-            &function_info,
+            function_info,
+            &mut buffer,
             None,
             false,
             false,
@@ -372,8 +396,11 @@ mod tests {
             start_position: Point { row: 0, column: 0 },
         };
 
+        let mut buffer = Vec::new();
+
         assert!(is_function_info_valid(
-            &function_info,
+            function_info,
+            &mut buffer,
             None,
             false,
             false,

@@ -1,4 +1,7 @@
-pub fn parse_google_docstring(text: &str) -> Option<Vec<(&str, Option<&str>)>> {
+pub fn parse_google_docstring<'a>(
+    text: &'a str,
+    buffer: &mut Vec<(&'a str, Option<&'a str>)>,
+) -> Option<()> {
     let (_, mut args) = text.split_once("Args:\n")?;
 
     if let Some(c) = args.find("Returns:\n") {
@@ -8,8 +11,6 @@ pub fn parse_google_docstring(text: &str) -> Option<Vec<(&str, Option<&str>)>> {
     let first_line = args.lines().next()?;
 
     let indentation = first_line.chars().take_while(|c| c.is_whitespace()).count();
-
-    let mut params = Vec::new();
 
     for line in args.lines() {
         if line.chars().take(indentation).all(|c| c.is_whitespace())
@@ -22,20 +23,23 @@ pub fn parse_google_docstring(text: &str) -> Option<Vec<(&str, Option<&str>)>> {
             let arg = arg.trim();
 
             let Some((name, typ)) = arg.split_once(' ') else {
-                params.push((arg, None));
+                buffer.push((arg, None));
                 continue;
             };
 
             let typ = typ.trim_start_matches('(').trim_end_matches(')');
 
-            params.push((name, Some(typ)));
+            buffer.push((name, Some(typ)));
         }
     }
 
-    Some(params)
+    Some(())
 }
 
-pub fn parse_numpy_docstring(text: &str) -> Option<Vec<(&str, Option<&str>)>> {
+pub fn parse_numpy_docstring<'a>(
+    text: &'a str,
+    buffer: &mut Vec<(&'a str, Option<&'a str>)>,
+) -> Option<()> {
     let (_, mut args) = text.split_once("Parameters\n")?;
 
     if let Some(c) = args.find("Returns\n") {
@@ -46,25 +50,23 @@ pub fn parse_numpy_docstring(text: &str) -> Option<Vec<(&str, Option<&str>)>> {
 
     let indentation = first_line.chars().take_while(|c| c.is_whitespace()).count();
 
-    let mut params = Vec::new();
-
     for line in args.lines().skip(1) {
         if line.chars().take(indentation).all(|c| c.is_whitespace())
             && line.chars().nth(indentation).map(|c| !c.is_whitespace()) == Some(true)
             && !line.trim().trim_end_matches(&['\'', '\"']).is_empty()
         {
             let Some((arg, typ)) = line.split_once(':') else {
-                params.push((line.trim(), None));
+                buffer.push((line.trim(), None));
                 continue;
             };
 
             let typ = typ.trim();
 
-            params.push((arg.trim(), Some(typ)));
+            buffer.push((arg.trim(), Some(typ)));
         }
     }
 
-    Some(params)
+    Some(())
 }
 
 pub fn extract_docstring(content: &str) -> Option<&str> {
@@ -90,8 +92,9 @@ mod tests {
                 x (int): First var.
                 y: Second var.
             """#;
+        let mut args = Vec::new();
 
-        let args = parse_google_docstring(docstring).unwrap();
+        parse_google_docstring(docstring, &mut args).unwrap();
 
         assert_eq!(args[0].1.unwrap(), "int");
         assert_eq!(args[1].0, "y");
@@ -111,13 +114,14 @@ mod tests {
             y
                 Second var.
             """#;
+        let mut buffer = Vec::new();
 
-        let args = parse_numpy_docstring(docstring).unwrap();
+        parse_numpy_docstring(docstring, &mut buffer).unwrap();
 
-        assert_eq!(args[0].1.unwrap(), "int");
-        assert_eq!(args[1].0, "y");
+        assert_eq!(buffer[0].1.unwrap(), "int");
+        assert_eq!(buffer[1].0, "y");
 
-        assert_eq!(args.len(), 2);
+        assert_eq!(buffer.len(), 2);
 
         let docstring = r#"
             """Hey.
@@ -125,7 +129,9 @@ mod tests {
             Parameters
             """#;
 
-        assert!(parse_numpy_docstring(docstring).is_none());
+        buffer.clear();
+
+        assert!(parse_numpy_docstring(docstring, &mut buffer).is_none());
     }
 
     #[test]
