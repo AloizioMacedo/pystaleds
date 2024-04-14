@@ -165,6 +165,7 @@ pub fn parse_numpy_docstring(
     Some(params)
 }
 
+/// Extracts the docstring from a block of a function's contents.
 pub fn extract_docstring(content: &str) -> Option<&str> {
     if let Some(stripped_content) = content.strip_prefix(r#"""""#) {
         let ending = stripped_content.find(r#"""""#)? + 6;

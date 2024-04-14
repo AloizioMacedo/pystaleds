@@ -1,12 +1,17 @@
 use crate::parsing::extract_docstring;
 use tree_sitter::{Node, Point};
 
+/// Information about a function's signature and docstring.
 pub(crate) struct FunctionInfo<'a, 'b> {
     pub(crate) params: &'b [(&'a str, Option<&'a str>)],
     pub(crate) docstring: Option<&'a str>,
     pub(crate) start_position: Point,
 }
 
+/// Extracts function information from a node if it is a function definition.
+///
+/// Uses a buffered params vector for performance, instead of allocating a new one
+/// every time.
 pub(crate) fn get_function_signature<'a, 'b>(
     node: &Node,
     source_code: &'a str,

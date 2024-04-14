@@ -15,6 +15,7 @@ pub enum DocstringStyle {
     AutoDetect,
 }
 
+/// Walks recursively through a tree applying a closure on each node.
 fn walk_rec<F>(cursor: &mut TreeCursor, closure: &mut F)
 where
     for<'a> F: FnMut(&Node),
@@ -34,6 +35,7 @@ where
     cursor.goto_parent();
 }
 
+/// Checks if the source code respects the specified rules.
 #[allow(clippy::too_many_arguments)]
 pub fn respects_rules(
     parser: &mut Parser,
@@ -75,6 +77,7 @@ pub fn respects_rules(
     success
 }
 
+/// Checks if a given function respects the specified rules.
 fn is_function_info_valid(
     info: &FunctionInfo,
     path: Option<&Path>,

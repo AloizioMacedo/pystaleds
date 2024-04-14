@@ -43,6 +43,7 @@ struct Args {
     docstyle: DocstringStyle,
 }
 
+/// Determines if a file or folder is hidden, i.e. if it starts with '.'.
 fn is_hidden(e: &DirEntry) -> bool {
     e.file_name()
         .to_str()
@@ -141,7 +142,8 @@ fn main() -> Result<()> {
     }
 }
 
-fn assess_success(entry: &Path, args: &Args, global_success: &AtomicU32) {
+/// Determines if the file has errors or not, increasing error count if it does.
+fn assess_success(entry: &Path, args: &Args, total_errors: &AtomicU32) {
     if entry.is_file() && entry.extension() == Some(&std::ffi::OsString::from("py")) {
         let Ok(success) = is_file_compliant(
             entry,
@@ -155,11 +157,12 @@ fn assess_success(entry: &Path, args: &Args, global_success: &AtomicU32) {
         };
 
         if !success {
-            global_success.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            total_errors.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         }
     }
 }
 
+/// Determines if a file is compliant to the specified rules.
 fn is_file_compliant(
     path: &Path,
     break_on_empty_line: bool,
