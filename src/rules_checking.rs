@@ -17,7 +17,7 @@ pub enum DocstringStyle {
 
 fn walk_rec<F>(cursor: &mut TreeCursor, closure: &mut F)
 where
-    F: FnMut(&Node),
+    for<'a> F: FnMut(&Node),
 {
     let node = cursor.node();
 
@@ -52,9 +52,10 @@ pub fn respects_rules(
     let mut cursor = tree.walk();
 
     let mut success = true;
+    let mut params = Vec::with_capacity(8);
 
     walk_rec(&mut cursor, &mut |node| {
-        let fs = get_function_signature(node, source_code);
+        let fs = get_function_signature(node, source_code, &mut params);
         if let Some(info) = fs {
             if !is_function_info_valid(
                 &info,
@@ -118,12 +119,13 @@ fn is_function_info_valid(
 
     if succeed_if_docstrings_are_not_typed {
         let is_valid = if args_from_docstring.len() == info.params.len() {
-            args_from_docstring.iter().zip(&info.params).all(
-                |((param1, type1), (param2, type2))| match (type1, type2) {
+            args_from_docstring
+                .iter()
+                .zip(info.params)
+                .all(|((param1, type1), (param2, type2))| match (type1, type2) {
                     (Some(type1), Some(type2)) => param1 == param2 && type1 == type2,
                     (_, _) => param1 == param2,
-                },
-            )
+                })
         } else {
             false
         };
@@ -174,7 +176,7 @@ mod tests {
     #[traced_test]
     fn test_success_no_docstring() {
         let function_info = FunctionInfo {
-            params: vec![("x", Some("int")), ("y", Some("str"))],
+            params: &[("x", Some("int")), ("y", Some("str"))],
             docstring: None,
             start_position: Point { row: 0, column: 0 },
         };
@@ -202,7 +204,7 @@ mod tests {
     #[traced_test]
     fn test_out_of_order() {
         let function_info = FunctionInfo {
-            params: vec![("x", Some("int")), ("y", Some("str"))],
+            params: &[("x", Some("int")), ("y", Some("str"))],
             docstring: Some(
                 r#"
                 """
@@ -226,7 +228,7 @@ mod tests {
         ));
 
         let function_info = FunctionInfo {
-            params: vec![("x", Some("int")), ("y", Some("str"))],
+            params: &[("x", Some("int")), ("y", Some("str"))],
             docstring: Some(
                 r#"
                 """
@@ -250,7 +252,7 @@ mod tests {
         ));
 
         let function_info = FunctionInfo {
-            params: vec![("x", Some("int")), ("y", Some("str"))],
+            params: &[("x", Some("int")), ("y", Some("str"))],
             docstring: Some(
                 r#"
                 """
@@ -277,7 +279,7 @@ mod tests {
         ));
 
         let function_info = FunctionInfo {
-            params: vec![("x", Some("int")), ("y", Some("str"))],
+            params: &[("x", Some("int")), ("y", Some("str"))],
             docstring: Some(
                 r#"
                 """
@@ -312,7 +314,7 @@ mod tests {
     #[traced_test]
     fn test_check_function_info() {
         let function_info = FunctionInfo {
-            params: vec![("x", Some("int")), ("y", Some("str"))],
+            params: &[("x", Some("int")), ("y", Some("str"))],
             docstring: Some(
                 r#"
                 """
@@ -352,7 +354,7 @@ mod tests {
     #[traced_test]
     fn ignore_edge_case() {
         let function_info = FunctionInfo {
-            params: vec![("x", Some("int")), ("y", Some("str"))],
+            params: &[("x", Some("int")), ("y", Some("str"))],
             docstring: Some(
                 r#"
                 """

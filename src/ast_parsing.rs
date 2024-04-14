@@ -1,23 +1,23 @@
 use crate::parsing::extract_docstring;
 use tree_sitter::{Node, Point};
 
-pub(crate) struct FunctionInfo<'a> {
-    pub(crate) params: Vec<(&'a str, Option<&'a str>)>,
+pub(crate) struct FunctionInfo<'a, 'b> {
+    pub(crate) params: &'b [(&'a str, Option<&'a str>)],
     pub(crate) docstring: Option<&'a str>,
     pub(crate) start_position: Point,
 }
 
-pub(crate) fn get_function_signature<'a>(
+pub(crate) fn get_function_signature<'a, 'b>(
     node: &Node,
     source_code: &'a str,
-) -> Option<FunctionInfo<'a>> {
+    params: &'b mut Vec<(&'a str, Option<&'a str>)>,
+) -> Option<FunctionInfo<'a, 'b>> {
     if !node.kind().eq("function_definition") {
         return None;
     }
 
     let params_node = node.child_by_field_name("parameters")?;
-
-    let mut params = Vec::new();
+    params.clear();
 
     for child in params_node.children(&mut params_node.walk()) {
         if child.kind() == "typed_parameter" {
