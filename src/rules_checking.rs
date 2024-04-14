@@ -630,6 +630,35 @@ def other_func(x,y,z):
     }
 
     #[test]
+    fn test_untyped_default_param() {
+        let mut parser = get_parser();
+        let source_code = r#"def f(a, x=2):
+    """
+    Hey.
+
+    Args:
+        a: _description
+        x (int): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    "Oi"
+    return x
+"#;
+        assert!(respects_rules(
+            &mut parser,
+            source_code,
+            None,
+            None,
+            true,
+            true,
+            true,
+            DocstringStyle::Google
+        ))
+    }
+
+    #[test]
     fn test_real_code() {
         let mut parser = get_parser();
         let source_code = r#"@dataclass

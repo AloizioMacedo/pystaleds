@@ -43,6 +43,14 @@ pub(crate) fn get_function_signature<'a, 'b>(
             }
         } else if child.kind() == "identifier" {
             params.push((child.utf8_text(source_code.as_bytes()).unwrap(), None));
+        } else if child.kind() == "default_parameter" {
+            let (name, _) = child
+                .utf8_text(source_code.as_bytes())
+                .unwrap()
+                .split_once('=')
+                .unwrap();
+
+            params.push((name, None));
         }
     }
 
