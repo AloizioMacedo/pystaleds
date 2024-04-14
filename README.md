@@ -157,7 +157,10 @@ Optional non-boolean arguments include:
 
 ## Benchmarking
 
-The benchmark below (done with [hyperfine](https://github.com/sharkdp/hyperfine)) includes the average times to run each checker tool on my machine.
+The benchmark below (done with [hyperfine](https://github.com/sharkdp/hyperfine))
+includes the average times to run each checker tool on my machine across different
+projects. The `test_folder` refers to the folder on the root of this repo with two
+simple `.py` files.
 
 If the time would be over 1 minute, it is indicated as NaN in the table, as I
 just stopped the test.
