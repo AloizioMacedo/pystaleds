@@ -25,7 +25,11 @@ pub(crate) fn get_function_signature<'a, 'b>(
     params.clear();
 
     for child in params_node.children(&mut params_node.walk()) {
-        if child.utf8_text(source_code.as_bytes()).unwrap() == "self" {
+        let text = child
+            .utf8_text(source_code.as_bytes())
+            .expect("should be valid utf-8");
+
+        if text == "self" {
             continue;
         }
 
@@ -35,11 +39,15 @@ pub(crate) fn get_function_signature<'a, 'b>(
 
             let mut d = child.walk();
 
-            for child in child.children(&mut d) {
-                if child.kind() == "identifier" {
-                    identifier = Some(child.utf8_text(source_code.as_bytes()).unwrap());
-                } else if child.kind() == "type" {
-                    typ = Some(child.utf8_text(source_code.as_bytes()).unwrap());
+            for inner_child in child.children(&mut d) {
+                let text_of_inner_child = inner_child
+                    .utf8_text(source_code.as_bytes())
+                    .expect("should be valid utf-8");
+
+                if inner_child.kind() == "identifier" {
+                    identifier = Some(text_of_inner_child);
+                } else if inner_child.kind() == "type" {
+                    typ = Some(text_of_inner_child);
                 }
             }
 
@@ -47,13 +55,11 @@ pub(crate) fn get_function_signature<'a, 'b>(
                 params.push((identifier, Some(typ)));
             }
         } else if child.kind() == "identifier" {
-            params.push((child.utf8_text(source_code.as_bytes()).unwrap(), None));
+            params.push((text, None));
         } else if child.kind() == "default_parameter" {
-            let (name, _) = child
-                .utf8_text(source_code.as_bytes())
-                .unwrap()
+            let (name, _) = text
                 .split_once('=')
-                .unwrap();
+                .expect("parameter with default value should have '=' in the text");
 
             params.push((name, None));
         }

@@ -61,7 +61,7 @@ fn main() -> Result<()> {
         .num_threads(0)
         .stack_size(100_000_000) // TODO: Make the algorithm non-recursive and remove the stack expansion.
         .build_global()
-        .unwrap();
+        .expect("thread pool should be possible to initialize");
 
     let args = Args::parse();
 
@@ -72,7 +72,7 @@ fn main() -> Result<()> {
 
         let files_with_errors = AtomicU32::new(0);
 
-        let paths = glob(s).unwrap();
+        let paths = glob(s).expect("glob pattern should be valid");
 
         paths.into_iter().par_bridge().for_each(|entry| {
             let Ok(entry) = entry else {
@@ -112,8 +112,7 @@ fn main() -> Result<()> {
 
             files_with_errors.into_inner()
         } else {
-            let span = tracing::error_span!("file", file_name = path.as_os_str().to_str().unwrap());
-            _ = span.enter();
+            // In this branch, path is a file.
 
             if is_file_compliant(
                 path,
