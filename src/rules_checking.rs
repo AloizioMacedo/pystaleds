@@ -40,6 +40,7 @@ pub fn respects_rules(
     source_code: &str,
     old_tree: Option<&Tree>,
     path: Option<&Path>,
+    break_on_empty_line: bool,
     succeed_if_no_docstring: bool,
     succeed_if_no_args_in_docstring: bool,
     succeed_if_docstrings_are_not_typed: bool,
@@ -60,6 +61,7 @@ pub fn respects_rules(
             if !is_function_info_valid(
                 &info,
                 path,
+                break_on_empty_line,
                 succeed_if_no_docstring,
                 succeed_if_no_args_in_docstring,
                 succeed_if_docstrings_are_not_typed,
@@ -76,6 +78,7 @@ pub fn respects_rules(
 fn is_function_info_valid(
     info: &FunctionInfo,
     path: Option<&Path>,
+    break_on_empty_line: bool,
     succeed_if_no_docstring: bool,
     succeed_if_no_args_in_docstring: bool,
     succeed_if_docstrings_are_not_typed: bool,
@@ -97,11 +100,10 @@ fn is_function_info_valid(
     };
 
     let args_from_docstring = match docstyle {
-        DocstringStyle::Google => parse_google_docstring(docstring),
-        DocstringStyle::Numpy => parse_numpy_docstring(docstring),
-        DocstringStyle::AutoDetect => {
-            parse_google_docstring(docstring).or(parse_numpy_docstring(docstring))
-        }
+        DocstringStyle::Google => parse_google_docstring(docstring, break_on_empty_line),
+        DocstringStyle::Numpy => parse_numpy_docstring(docstring, break_on_empty_line),
+        DocstringStyle::AutoDetect => parse_google_docstring(docstring, break_on_empty_line)
+            .or(parse_numpy_docstring(docstring, break_on_empty_line)),
     };
 
     let Some(args_from_docstring) = args_from_docstring else {
@@ -186,6 +188,7 @@ mod tests {
         assert!(is_function_info_valid(
             &function_info,
             None,
+            false,
             true,
             true,
             true,
@@ -195,6 +198,7 @@ mod tests {
         assert!(!is_function_info_valid(
             &function_info,
             None,
+            false,
             false,
             true,
             true,
@@ -223,6 +227,7 @@ mod tests {
         assert!(!is_function_info_valid(
             &function_info,
             None,
+            false,
             true,
             true,
             true,
@@ -247,6 +252,7 @@ mod tests {
         assert!(is_function_info_valid(
             &function_info,
             None,
+            false,
             true,
             true,
             true,
@@ -274,6 +280,7 @@ mod tests {
         assert!(!is_function_info_valid(
             &function_info,
             None,
+            false,
             true,
             true,
             true,
@@ -305,6 +312,7 @@ mod tests {
         assert!(is_function_info_valid(
             &function_info,
             None,
+            false,
             true,
             true,
             true,
@@ -338,6 +346,7 @@ mod tests {
             None,
             false,
             false,
+            false,
             true,
             DocstringStyle::Google
         ));
@@ -345,6 +354,7 @@ mod tests {
         assert!(is_function_info_valid(
             &function_info,
             None,
+            false,
             false,
             false,
             true,
@@ -379,6 +389,7 @@ mod tests {
             None,
             false,
             false,
+            false,
             true,
             DocstringStyle::Google
         ));
@@ -405,6 +416,7 @@ mod tests {
             source_code,
             None,
             None,
+            false,
             true,
             true,
             true,
@@ -428,6 +440,7 @@ mod tests {
             source_code,
             None,
             None,
+            false,
             true,
             true,
             true,
@@ -453,6 +466,7 @@ mod tests {
             source_code,
             None,
             None,
+            false,
             true,
             true,
             true,
@@ -493,6 +507,7 @@ def other_func(x,y,z):
             None,
             false,
             false,
+            false,
             true,
             DocstringStyle::Google,
         );
@@ -530,6 +545,7 @@ def other_func(x,y,z):
             None,
             None,
             false,
+            false,
             true,
             true,
             DocstringStyle::Google,
@@ -561,6 +577,7 @@ def other_func(x,y,z):
             source_code,
             None,
             None,
+            false,
             true,
             true,
             false,
@@ -587,6 +604,7 @@ def other_func(x,y,z):
             source_code,
             None,
             None,
+            false,
             true,
             true,
             false,
@@ -608,6 +626,7 @@ def other_func(x,y,z):
             &source_code,
             None,
             Some(&path),
+            false,
             true,
             true,
             true,
@@ -622,6 +641,7 @@ def other_func(x,y,z):
             &source_code,
             None,
             Some(&path),
+            false,
             true,
             true,
             true,
@@ -651,11 +671,94 @@ def other_func(x,y,z):
             source_code,
             None,
             None,
+            false,
             true,
             true,
             true,
             DocstringStyle::Google
         ))
+    }
+
+    #[test]
+    fn test_break_on_new_line() {
+        let mut parser = get_parser();
+        let source_code = r#"def f(a, x=2):
+    """
+    Hey.
+
+    Args:
+        a: _description
+        x (int): _description_
+            asjkldasjkld
+
+        askldjfasjkldf: alskdj
+    """
+    "Oi"
+    return x
+"#;
+        assert!(!respects_rules(
+            &mut parser,
+            source_code,
+            None,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Google
+        ));
+
+        assert!(respects_rules(
+            &mut parser,
+            source_code,
+            None,
+            None,
+            true,
+            true,
+            true,
+            true,
+            DocstringStyle::Google
+        ));
+
+        let source_code = r#"def f(a, x=2):
+    """
+    Hey.
+
+    Parameters
+    ----------
+    a
+    x : int
+        Hohohoh
+
+    See also
+    --------
+    Something else
+    """
+    return x
+"#;
+        assert!(!respects_rules(
+            &mut parser,
+            source_code,
+            None,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Numpy
+        ));
+
+        assert!(respects_rules(
+            &mut parser,
+            source_code,
+            None,
+            None,
+            true,
+            true,
+            true,
+            true,
+            DocstringStyle::Numpy
+        ));
     }
 
     #[test]
@@ -787,6 +890,7 @@ def other_func(x,y,z):
             source_code,
             None,
             None,
+            false,
             true,
             true,
             true,

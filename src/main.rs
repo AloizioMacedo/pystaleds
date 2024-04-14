@@ -16,6 +16,10 @@ struct Args {
     /// Will ignore hidden files.
     allow_hidden: bool,
 
+    #[arg(long, default_value_t = false, alias = "be")]
+    /// Will consider that an "Args" section breaks on an empty line.
+    break_on_empty_line: bool,
+
     #[arg(long, default_value_t = false, alias = "nd")]
     /// Will consider an error for a docstring to be absent.
     forbid_no_docstring: bool,
@@ -112,6 +116,7 @@ fn main() -> Result<()> {
 
             if is_file_compliant(
                 path,
+                args.break_on_empty_line,
                 args.forbid_no_docstring,
                 args.forbid_no_args_in_docstring,
                 args.forbid_untyped_docstrings,
@@ -144,6 +149,7 @@ fn assess_success(entry: &Path, args: &Args, global_success: &AtomicU32) {
 
         let Ok(success) = is_file_compliant(
             entry,
+            args.break_on_empty_line,
             args.forbid_no_docstring,
             args.forbid_no_args_in_docstring,
             args.forbid_untyped_docstrings,
@@ -160,6 +166,7 @@ fn assess_success(entry: &Path, args: &Args, global_success: &AtomicU32) {
 
 fn is_file_compliant(
     path: &Path,
+    break_on_empty_line: bool,
     forbid_no_docstring: bool,
     forbid_no_args_in_docstring: bool,
     forbid_untyped_docstrings: bool,
@@ -175,6 +182,7 @@ fn is_file_compliant(
         &contents,
         None,
         Some(path),
+        break_on_empty_line,
         !forbid_no_docstring,
         !forbid_no_args_in_docstring,
         !forbid_untyped_docstrings,

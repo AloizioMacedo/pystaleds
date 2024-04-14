@@ -1,8 +1,17 @@
-pub fn parse_google_docstring(text: &str) -> Option<Vec<(&str, Option<&str>)>> {
+pub fn parse_google_docstring(
+    text: &str,
+    break_on_empty_line: bool,
+) -> Option<Vec<(&str, Option<&str>)>> {
     let (_, mut args) = text.split_once("Args:\n")?;
 
     if let Some(c) = args.find("Returns:\n") {
         args = &args[..c];
+    };
+
+    if break_on_empty_line {
+        if let Some(c) = args.find("\n\n") {
+            args = &args[..c];
+        }
     };
 
     let first_line = args.lines().next()?;
@@ -35,11 +44,20 @@ pub fn parse_google_docstring(text: &str) -> Option<Vec<(&str, Option<&str>)>> {
     Some(params)
 }
 
-pub fn parse_numpy_docstring(text: &str) -> Option<Vec<(&str, Option<&str>)>> {
+pub fn parse_numpy_docstring(
+    text: &str,
+    break_on_empty_line: bool,
+) -> Option<Vec<(&str, Option<&str>)>> {
     let (_, mut args) = text.split_once("Parameters\n")?;
 
     if let Some(c) = args.find("Returns\n") {
         args = &args[..c];
+    };
+
+    if break_on_empty_line {
+        if let Some(c) = args.find("\n\n") {
+            args = &args[..c];
+        }
     };
 
     let first_line = args.lines().nth(1)?;
@@ -91,7 +109,7 @@ mod tests {
                 y: Second var.
             """#;
 
-        let args = parse_google_docstring(docstring).unwrap();
+        let args = parse_google_docstring(docstring, true).unwrap();
 
         assert_eq!(args[0].1.unwrap(), "int");
         assert_eq!(args[1].0, "y");
@@ -112,7 +130,7 @@ mod tests {
                 Second var.
             """#;
 
-        let args = parse_numpy_docstring(docstring).unwrap();
+        let args = parse_numpy_docstring(docstring, true).unwrap();
 
         assert_eq!(args[0].1.unwrap(), "int");
         assert_eq!(args[1].0, "y");
@@ -125,7 +143,7 @@ mod tests {
             Parameters
             """#;
 
-        assert!(parse_numpy_docstring(docstring).is_none());
+        assert!(parse_numpy_docstring(docstring, true).is_none());
     }
 
     #[test]
