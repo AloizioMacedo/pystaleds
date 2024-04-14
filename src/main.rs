@@ -33,12 +33,12 @@ struct Args {
     /// raises an error if the docstring's type and the signature's type are mismatched.
     forbid_untyped_docstrings: bool,
 
-    #[arg(long, alias = "g")]
+    #[arg(short, long)]
     /// Runs over glob matches considering root to be the path specified in the command.
     /// Disconsiders the allow_hidden flag.
     glob: Option<String>,
 
-    #[arg(long, default_value_t, value_enum, alias = "s")]
+    #[arg(short, long, default_value_t, value_enum)]
     /// Determines the docstring style to consider for parsing.
     docstyle: DocstringStyle,
 }
