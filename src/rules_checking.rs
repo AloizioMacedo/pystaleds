@@ -133,9 +133,11 @@ fn is_function_info_valid(
         if !is_valid {
             tracing::event!(
                 Level::ERROR,
-                "{}Docstring args not matching at function starting on {}",
+                "{}Docstring args not matching at function starting on {}. Args from function: {:?}. Args from docstring: {:?}",
                 path,
-                info.start_position
+                info.start_position,
+                info.params,
+                args_from_docstring,
             );
         }
 
