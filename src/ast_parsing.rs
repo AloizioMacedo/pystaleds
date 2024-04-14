@@ -20,6 +20,10 @@ pub(crate) fn get_function_signature<'a, 'b>(
     params.clear();
 
     for child in params_node.children(&mut params_node.walk()) {
+        if child.utf8_text(source_code.as_bytes()).unwrap() == "self" {
+            continue;
+        }
+
         if child.kind() == "typed_parameter" {
             let mut identifier = None;
             let mut typ = None;
