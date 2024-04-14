@@ -123,6 +123,7 @@ fn main() -> Result<()> {
     };
 
     if success {
+        println!("✅ Success!");
         Ok(())
     } else {
         Err(anyhow!("found errors"))
