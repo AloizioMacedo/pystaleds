@@ -4,12 +4,21 @@ build-backend = "maturin"
 
 [project]
 name = "pystaleds"
+description = "CLI tool for checking stale docstrings."
+urls = { "Repository" = "https://github.com/AloizioMacedo/pystaleds" }
+authors = [{ name = "Aloizio Macedo", email = "aloizioMacedo@gmail.com" }]
+maintainers = [{ name = "Aloizio Macedo", email = "aloizioMacedo@gmail.com" }]
+readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Documentation",
 ]
+keywords = ["rust", "docstrings", "pre-commit", "cli", "tool", "testing", "ci"]
 dynamic = ["version"]
+
 [tool.maturin]
 features = ["pyo3/extension-module"]
