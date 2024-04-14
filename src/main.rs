@@ -13,7 +13,7 @@ struct Args {
     path: String,
 
     #[arg(long, default_value_t = false, alias = "ah")]
-    /// Will ignore hidden files.
+    /// Will allow hidden files.
     allow_hidden: bool,
 
     #[arg(long, default_value_t = false, alias = "be")]
