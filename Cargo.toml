@@ -18,7 +18,7 @@ anyhow = "1.0.81"
 cc = "1.0.90"
 clap = { version = "4.5.4", features = ["derive"] }
 glob = "0.3.1"
-pyo3 = "0.21.1"
+pyo3 = { version = "0.21.1", optional = true }
 rayon = "1.10.0"
 regex = "1.10.4"
 thiserror = "1.0.58"
