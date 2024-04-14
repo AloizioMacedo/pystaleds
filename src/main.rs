@@ -46,7 +46,7 @@ fn is_hidden(e: &DirEntry) -> bool {
 }
 
 fn main() -> Result<()> {
-    let (non_blocking, _guard) = tracing_appender::non_blocking(std::io::stderr());
+    let (non_blocking, _guard) = tracing_appender::non_blocking(std::io::stdout());
 
     tracing_subscriber::fmt()
         .without_time()
