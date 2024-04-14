@@ -3,15 +3,12 @@ def f(x: int):
     Hey.
 
     Args:
-        x (str): _description_
+        x (int): _description_
+        y (int): _description_
 
-    Returns:
-        _type_: _description_
     """
-    "Oi"
     return x
 
 
 def g(x):
-    """Hey."""
     return x
