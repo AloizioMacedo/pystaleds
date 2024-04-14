@@ -143,10 +143,6 @@ fn main() -> Result<()> {
 
 fn assess_success(entry: &Path, args: &Args, global_success: &AtomicU32) {
     if entry.is_file() && entry.extension() == Some(&std::ffi::OsString::from("py")) {
-        let span = tracing::error_span!("file", file_name = entry.as_os_str().to_str().unwrap());
-
-        _ = span.enter();
-
         let Ok(success) = is_file_compliant(
             entry,
             args.break_on_empty_line,

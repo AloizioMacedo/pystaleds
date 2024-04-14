@@ -1,3 +1,40 @@
+/// Parses a google docstring into a Vec with the names of the args and their types.
+///
+/// # Examples
+///
+/// ```rust
+/// use pystaleds::parsing::parse_google_docstring;
+///
+/// let parsed_docstring = parse_google_docstring(
+///            r#""""This is my docstring!!!.
+///
+///    Args:
+///        x: This is my first parameter.
+///        y: And this is my second.
+///    """#,
+///            false,
+///        )
+///        .unwrap();
+///
+/// assert_eq!(parsed_docstring, vec![("x", None), ("y", None)]);
+///
+/// let parsed_docstring = parse_google_docstring(
+///            r#""""This is my docstring!!!.
+///
+///    Args:
+///        x (int): This is my first parameter.
+///        y (float): And this is my second.
+///    """#,
+///            false,
+///        )
+///        .unwrap();
+///
+/// assert_eq!(parsed_docstring, vec![("x", Some("int")), ("y", Some("float"))]);
+///
+/// let not_a_docstring = parse_google_docstring("This is not a docstring!", false);
+///
+/// assert!(not_a_docstring.is_none());
+///
 pub fn parse_google_docstring(
     text: &str,
     break_on_empty_line: bool,
@@ -44,6 +81,49 @@ pub fn parse_google_docstring(
     Some(params)
 }
 
+/// Parses a numpy docstring into a Vec with the names of the args and their types.
+///
+/// # Examples
+///
+/// ```rust
+/// use pystaleds::parsing::parse_numpy_docstring;
+///
+/// let parsed_docstring = parse_numpy_docstring(
+///            r#""""This is my docstring!!!.
+///
+///    Parameters
+///    ----------
+///    x
+///        This is my first parameter.
+///    y
+///        And this is my second.
+///    """#,
+///            false,
+///        )
+///        .unwrap();
+///
+/// assert_eq!(parsed_docstring, vec![("x", None), ("y", None)]);
+///
+/// let parsed_docstring = parse_numpy_docstring(
+///            r#""""This is my docstring!!!.
+///
+///    Parameters
+///    ----------
+///    x: int
+///        This is my first parameter.
+///    y: float
+///        And this is my second.
+///    """#,
+///            false,
+///        )
+///        .unwrap();
+///
+/// assert_eq!(parsed_docstring, vec![("x", Some("int")), ("y", Some("float"))]);
+///
+/// let not_a_docstring = parse_numpy_docstring("This is not a docstring!", false);
+///
+/// assert!(not_a_docstring.is_none());
+///
 pub fn parse_numpy_docstring(
     text: &str,
     break_on_empty_line: bool,
