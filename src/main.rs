@@ -1,4 +1,4 @@
-use std::{env::set_current_dir, path::Path, sync::atomic::AtomicBool};
+use std::{env::set_current_dir, path::Path, sync::atomic::AtomicU32};
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
@@ -62,10 +62,10 @@ fn main() -> Result<()> {
 
     let path = Path::new(&args.path);
 
-    let success = if let Some(s) = &args.glob {
+    let files_with_errors = if let Some(s) = &args.glob {
         set_current_dir(path)?;
 
-        let global_success = AtomicBool::new(true);
+        let files_with_errors = AtomicU32::new(0);
 
         let paths = glob(s).unwrap();
 
@@ -76,15 +76,15 @@ fn main() -> Result<()> {
 
             let entry = entry.as_path();
 
-            assess_success(entry, &args, &global_success);
+            assess_success(entry, &args, &files_with_errors);
         });
 
-        global_success.into_inner()
+        files_with_errors.into_inner()
     } else {
-        let success = if path.is_dir() {
+        let files_with_errors = if path.is_dir() {
             let walk = walkdir::WalkDir::new(path);
 
-            let global_success = AtomicBool::new(true);
+            let files_with_errors = AtomicU32::new(0);
 
             walk.into_iter()
                 .filter_entry(|e| {
@@ -102,35 +102,41 @@ fn main() -> Result<()> {
 
                     let entry = entry.path();
 
-                    assess_success(entry, &args, &global_success)
+                    assess_success(entry, &args, &files_with_errors)
                 });
 
-            global_success.into_inner()
+            files_with_errors.into_inner()
         } else {
             let span = tracing::error_span!("file", file_name = path.as_os_str().to_str().unwrap());
             _ = span.enter();
 
-            is_file_compliant(
+            if is_file_compliant(
                 path,
                 args.forbid_no_docstring,
                 args.forbid_no_args_in_docstring,
                 args.forbid_untyped_docstrings,
                 args.docstyle,
-            )?
+            )? {
+                1
+            } else {
+                0
+            }
         };
 
-        success
+        files_with_errors
     };
 
-    if success {
+    if files_with_errors == 0 {
         println!("✅ Success!");
         Ok(())
+    } else if files_with_errors == 1 {
+        Err(anyhow!("found errors in {} file", files_with_errors))
     } else {
-        Err(anyhow!("found errors"))
+        Err(anyhow!("found errors in {} files", files_with_errors))
     }
 }
 
-fn assess_success(entry: &Path, args: &Args, global_success: &AtomicBool) {
+fn assess_success(entry: &Path, args: &Args, global_success: &AtomicU32) {
     if entry.is_file() && entry.extension() == Some(&std::ffi::OsString::from("py")) {
         let span = tracing::error_span!("file", file_name = entry.as_os_str().to_str().unwrap());
 
@@ -147,7 +153,7 @@ fn assess_success(entry: &Path, args: &Args, global_success: &AtomicBool) {
         };
 
         if !success {
-            global_success.swap(false, std::sync::atomic::Ordering::Relaxed);
+            global_success.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         }
     }
 }
