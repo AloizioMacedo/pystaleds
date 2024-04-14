@@ -42,7 +42,7 @@ pub fn respects_rules(
     path: Option<&Path>,
     succeed_if_no_docstring: bool,
     succeed_if_no_args_in_docstring: bool,
-    docstring_should_always_be_typed: bool,
+    succeed_if_docstrings_are_not_typed: bool,
     docstyle: DocstringStyle,
 ) -> bool {
     let tree = parser
@@ -62,7 +62,7 @@ pub fn respects_rules(
                 path,
                 succeed_if_no_docstring,
                 succeed_if_no_args_in_docstring,
-                docstring_should_always_be_typed,
+                succeed_if_docstrings_are_not_typed,
                 docstyle,
             ) {
                 success = false;
@@ -627,5 +627,141 @@ def other_func(x,y,z):
             true,
             DocstringStyle::Google
         ));
+    }
+
+    #[test]
+    fn test_real_code() {
+        let mut parser = get_parser();
+        let source_code = r#"@dataclass
+        class TimeSeries:
+            def __init__(
+                self,
+                raw_data: pd.DataFrame,
+                cnpj: str = "",
+                min_date: Optional[str] = None,
+                max_date: Optional[str] = None,
+            ):
+                self.raw_data = raw_data
+                self.cnpj = cnpj
+
+                min_date = self.raw_data[DT].min()
+                max_date = self.raw_data[DT].max()
+
+                self._min_date = min_date if min_date is not None else min_date
+                self._max_date = max_date if max_date is not None else max_date
+
+                self._calculation_cache: Dict[Tuple[str, str], float] = {}
+
+            def filter_ts(self, from_date: str, to_date: str):
+                if self._min_date == from_date and self._max_date == to_date:
+                    return
+
+                self.raw_data = self.raw_data[
+                    (self.raw_data[DT] >= from_date) & (self.raw_data[DT] <= to_date)
+                ].reset_index()
+
+                self._min_date = from_date
+                self._max_date = to_date
+
+            def calculate_value_at_end(
+                self,
+                from_date: str,
+                to_date: str,
+                initial_investiment: float = 1.0,
+            ) -> float:
+                if (result := self._calculation_cache.get((from_date, to_date))) is not None:
+                    return result * initial_investiment
+
+                values = self.raw_data[
+                    (self.raw_data[DT] >= from_date) & (self.raw_data[DT] <= to_date)
+                ][VALUES]
+
+                product: float = values.product()  # type: ignore
+
+                self._calculation_cache[(from_date, to_date)] = product
+
+                return product * initial_investiment
+
+            def average(
+                self,
+                from_date: Optional[str] = None,
+                to_date: Optional[str] = None,
+            ) -> float:
+                from_date = from_date if from_date is not None else self._min_date
+                to_date = to_date if to_date is not None else self._max_date
+
+                values = self.raw_data[
+                    (self.raw_data[DT] >= from_date) & (self.raw_data[DT] <= to_date)
+                ][VALUES]
+
+                mean = values.mean()
+                return mean  # type: ignore
+
+            def variance(
+                self,
+                from_date: Optional[str] = None,
+                to_date: Optional[str] = None,
+            ) -> float:
+                """Hello.
+
+                Args:
+                    from_date: Hohoho.
+                    to_date: None,
+
+                """
+                from_date = from_date if from_date is not None else self._min_date
+                to_date = to_date if to_date is not None else self._max_date
+
+                values = self.raw_data[
+                    (self.raw_data[DT] >= from_date) & (self.raw_data[DT] <= to_date)
+                ][VALUES]
+
+                var: float = values.var()  # type: ignore
+                return var
+
+            def geometric_mean(self, from_date: Optional[str], to_date: Optional[str]) -> float:
+                from_date = from_date if from_date is not None else self._min_date
+                to_date = to_date if to_date is not None else self._max_date
+
+                values = self.raw_data[
+                    (self.raw_data[DT] >= from_date) & (self.raw_data[DT] <= to_date)
+                ][VALUES]
+
+                product: float = values.product()  # type: ignore
+                geo_mean = (product) ** (1 / len(values))
+
+                return geo_mean
+
+            def correlation(
+                self,
+                other: TimeSeries,
+                from_date: Optional[str],
+                to_date: Optional[str],
+            ) -> float:
+                from_date = from_date if from_date is not None else self._min_date
+                to_date = to_date if to_date is not None else self._max_date
+
+                values1 = self.raw_data[
+                    (self.raw_data[DT] >= from_date) & (self.raw_data[DT] <= to_date)
+                ][VALUES]
+
+                values2 = other.raw_data[
+                    (other.raw_data[DT] >= from_date) & (other.raw_data[DT] <= to_date)
+                ][VALUES]
+
+                return np.corrcoef(values1, values2)[0, 1]
+
+        "#;
+
+        assert!(respects_rules(
+            &mut parser,
+            source_code,
+            None,
+            None,
+            true,
+            true,
+            true,
+            DocstringStyle::AutoDetect
+        ))
     }
 }

@@ -24,7 +24,7 @@ pub(crate) fn get_function_signature<'a, 'b>(
             continue;
         }
 
-        if child.kind() == "typed_parameter" {
+        if child.kind() == "typed_parameter" || child.kind() == "typed_default_parameter" {
             let mut identifier = None;
             let mut typ = None;
 
