@@ -1,10 +1,12 @@
 use std::path::Path;
 
 use clap::ValueEnum;
+use logos::Lexer;
 use tracing::Level;
 use tree_sitter::{Node, Parser, Tree, TreeCursor};
 
 use crate::ast_parsing::{get_function_signature, FunctionInfo};
+use crate::lexing::get_next_function_info;
 use crate::parsing::{parse_google_docstring, parse_numpy_docstring};
 
 #[derive(Default, Clone, Copy, ValueEnum)]
@@ -77,6 +79,39 @@ pub fn respects_rules(
     success
 }
 
+/// Checks if the source code respects the specified rules.
+#[allow(clippy::too_many_arguments)]
+pub fn respects_rules_through_lexing(
+    source_code: &str,
+    path: Option<&Path>,
+    break_on_empty_line: bool,
+    succeed_if_no_docstring: bool,
+    succeed_if_no_args_in_docstring: bool,
+    succeed_if_docstrings_are_not_typed: bool,
+    docstyle: DocstringStyle,
+) -> bool {
+    let mut lexer = Lexer::new(source_code);
+
+    let mut success = true;
+    let mut params = Vec::with_capacity(8);
+
+    while let Some(info) = get_next_function_info(&mut lexer, &mut params) {
+        if !is_function_info_valid(
+            &info,
+            path,
+            break_on_empty_line,
+            succeed_if_no_docstring,
+            succeed_if_no_args_in_docstring,
+            succeed_if_docstrings_are_not_typed,
+            docstyle,
+        ) {
+            success = false;
+        }
+    }
+
+    success
+}
+
 /// Checks if a given function respects the specified rules.
 fn is_function_info_valid(
     info: &FunctionInfo,
@@ -93,9 +128,9 @@ fn is_function_info_valid(
         if !succeed_if_no_docstring {
             tracing::event!(
                 Level::ERROR,
-                "{}Line {}: Docstring missing",
+                "{}{}: Docstring missing",
                 path,
-                info.start_position.row + 1
+                info.function_name
             );
         }
 
@@ -113,9 +148,9 @@ fn is_function_info_valid(
         if !succeed_if_no_args_in_docstring {
             tracing::event!(
                 Level::ERROR,
-                "{}Line {}: Args missing from docstring",
+                "{}{}: Args missing from docstring",
                 path,
-                info.start_position.row + 1
+                info.function_name
             );
         }
 
@@ -138,9 +173,9 @@ fn is_function_info_valid(
         if !is_valid {
             tracing::event!(
                 Level::ERROR,
-                "{}Line {}: Args from function: {:?}. Args from docstring: {:?}",
+                "{}{}: Args from function: {:?}. Args from docstring: {:?}",
                 path,
-                info.start_position.row + 1,
+                info.function_name,
                 info.params,
                 args_from_docstring,
             );
@@ -153,8 +188,8 @@ fn is_function_info_valid(
         if !is_valid {
             tracing::event!(
                 Level::ERROR,
-                "Docstring args not matching at function start on  {:?}",
-                info.start_position
+                "Docstring args not matching at function {}",
+                info.function_name
             );
         }
 
@@ -165,7 +200,6 @@ fn is_function_info_valid(
 #[cfg(test)]
 mod tests {
     use tracing_test::traced_test;
-    use tree_sitter::Point;
 
     use super::*;
 
@@ -185,7 +219,7 @@ mod tests {
         let function_info = FunctionInfo {
             params: &[("x", Some("int")), ("y", Some("str"))],
             docstring: None,
-            start_position: Point { row: 0, column: 0 },
+            function_name: "",
         };
 
         assert!(is_function_info_valid(
@@ -224,7 +258,7 @@ mod tests {
                     x: Hehehe.
                 """"#,
             ),
-            start_position: Point { row: 0, column: 0 },
+            function_name: "",
         };
 
         assert!(!is_function_info_valid(
@@ -249,7 +283,7 @@ mod tests {
                     y: Nope.
                 """"#,
             ),
-            start_position: Point { row: 0, column: 0 },
+            function_name: "",
         };
 
         assert!(is_function_info_valid(
@@ -277,7 +311,7 @@ mod tests {
                     Hehehe
                 """"#,
             ),
-            start_position: Point { row: 0, column: 0 },
+            function_name: "",
         };
 
         assert!(!is_function_info_valid(
@@ -309,7 +343,7 @@ mod tests {
                 ...
                 """"#,
             ),
-            start_position: Point { row: 0, column: 0 },
+            function_name: "",
         };
 
         assert!(is_function_info_valid(
@@ -341,7 +375,7 @@ mod tests {
                     ...
                 """"#,
             ),
-            start_position: Point { row: 0, column: 0 },
+            function_name: "",
         };
 
         assert!(is_function_info_valid(
@@ -384,7 +418,7 @@ mod tests {
                     ...
                 """"#,
             ),
-            start_position: Point { row: 0, column: 0 },
+            function_name: "",
         };
 
         assert!(is_function_info_valid(

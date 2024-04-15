@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
 use logos::{Lexer, Logos, Source};
-use tree_sitter::Point;
 
 use crate::ast_parsing::FunctionInfo;
 
@@ -17,7 +16,7 @@ pub fn get_next_function_info<'a, 'b>(
 
         lexer.next(); // Going to function name;
 
-        let _function_name = lexer.slice();
+        let function_name = lexer.slice();
         lexer.next(); // Going to first parenthesis;
 
         while let Some(Ok(Token::Text)) = lexer.next() {
@@ -86,7 +85,7 @@ pub fn get_next_function_info<'a, 'b>(
                 return Some(FunctionInfo {
                     params,
                     docstring,
-                    start_position: Point { row: 0, column: 0 },
+                    function_name,
                 });
             }
         }
@@ -208,7 +207,7 @@ pub enum Token {
     Kwargs,
 
     // Or regular expressions.
-    #[regex("[a-zA-Z0-9\'\"]+")]
+    #[regex("[a-zA-Z0-9\'\"_]+")]
     Text,
 }
 

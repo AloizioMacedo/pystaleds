@@ -1,17 +1,11 @@
 use crate::parsing::extract_docstring;
-use tree_sitter::{Node, Point};
+use tree_sitter::Node;
 
 /// Information about a function's signature and docstring.
 pub(crate) struct FunctionInfo<'a, 'b> {
     pub(crate) params: &'b [(&'a str, Option<&'a str>)],
     pub(crate) docstring: Option<&'a str>,
-    pub(crate) start_position: Point,
-}
-
-/// Information about a function's signature and docstring.
-pub(crate) struct FunctionInfoNew<'a, 'b> {
-    pub(crate) params: &'b [(&'a str, Option<&'a str>)],
-    pub(crate) docstring: Option<&'a str>,
+    pub(crate) function_name: &'a str,
 }
 
 /// Extracts function information from a node if it is a function definition.
@@ -27,6 +21,8 @@ pub(crate) fn get_function_signature<'a, 'b>(
     if !node.kind().eq("function_definition") {
         return None;
     }
+
+    let function_name = node.utf8_text(source_code.as_bytes()).ok()?;
 
     let params_node = node.child_by_field_name("parameters")?;
     params.clear();
@@ -79,11 +75,9 @@ pub(crate) fn get_function_signature<'a, 'b>(
     let content = block.utf8_text(source_code.as_bytes()).ok()?;
     let docstring = extract_docstring(content);
 
-    let start_position = node.start_position();
-
     Some(FunctionInfo {
         params,
         docstring,
-        start_position,
+        function_name,
     })
 }
