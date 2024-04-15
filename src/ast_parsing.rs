@@ -12,6 +12,7 @@ pub(crate) struct FunctionInfo<'a, 'b> {
 ///
 /// Uses a buffered params vector for performance, instead of allocating a new one
 /// every time.
+#[inline]
 pub(crate) fn get_function_signature<'a, 'b>(
     node: &Node,
     source_code: &'a str,
