@@ -8,6 +8,12 @@ pub(crate) struct FunctionInfo<'a, 'b> {
     pub(crate) start_position: Point,
 }
 
+/// Information about a function's signature and docstring.
+pub(crate) struct FunctionInfoNew<'a, 'b> {
+    pub(crate) params: &'b [(&'a str, Option<&'a str>)],
+    pub(crate) docstring: Option<&'a str>,
+}
+
 /// Extracts function information from a node if it is a function definition.
 ///
 /// Uses a buffered params vector for performance, instead of allocating a new one
