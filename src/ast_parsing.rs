@@ -25,7 +25,9 @@ pub(crate) fn get_function_signature<'a, 'b>(
     let params_node = node.child_by_field_name("parameters")?;
     params.clear();
 
-    for child in params_node.children(&mut params_node.walk()) {
+    let mut cursor = params_node.walk();
+
+    for child in params_node.children(&mut cursor) {
         let text = child
             .utf8_text(source_code.as_bytes())
             .expect("should be valid utf-8");
@@ -66,15 +68,7 @@ pub(crate) fn get_function_signature<'a, 'b>(
         }
     }
 
-    let mut block = None;
-    for child in node.children(&mut node.walk()) {
-        if child.kind() == "block" {
-            block = Some(child);
-            break;
-        }
-    }
-
-    let block = block?;
+    let block = node.children(&mut cursor).find(|c| c.kind() == "block")?;
 
     let content = block.utf8_text(source_code.as_bytes()).ok()?;
     let docstring = extract_docstring(content);
