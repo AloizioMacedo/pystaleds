@@ -60,9 +60,28 @@ fn get_next_function_info<'a, 'b>(
                 }
             }
 
-            let docstring = Some("");
+            while let Some(Ok(x)) = lexer.next() {
+                if let Token::Colon = x {
+                    lexer.next();
+                    let start = lexer.span().start;
 
-            return Some(FunctionInfoNew { params, docstring });
+                    let docstring = if lexer.slice().starts_with(r#"""""#) {
+                        let end = lexer.source()[start + 3..]
+                            .find(r#"""""#)
+                            .expect("docstring should end");
+                        Some(&lexer.source()[start..(start + end + 6)])
+                    } else if lexer.slice().starts_with(r#"'''"#) {
+                        let end = lexer.source()[start + 3..]
+                            .find(r#"'''"#)
+                            .expect("docstring should end");
+                        Some(&lexer.source()[start..(start + end + 6)])
+                    } else {
+                        None
+                    };
+
+                    return Some(FunctionInfoNew { params, docstring });
+                }
+            }
         }
     }
 
@@ -137,6 +156,19 @@ fn extract_possibly_parenthesized_content<'a>(
     }
 
     Err(anyhow!("reached end of lexing without enclosers"))
+}
+
+#[derive(Logos, Debug, PartialEq)]
+#[logos(skip r"\s+")] // Ignore this regex pattern between tokens
+enum DocstringToken {
+    #[token(r#"""""#)]
+    DocstringStartDoubleQuotes,
+
+    #[token(r#"'''"#)]
+    DocstringStartSingleQuotes,
+
+    #[token(":")]
+    Colon,
 }
 
 #[derive(Logos, Debug, PartialEq)]
@@ -226,9 +258,14 @@ mod tests {
 
         let mut params = Vec::new();
 
-        get_next_function_info(&mut lex, &mut params);
+        let function_info = get_next_function_info(&mut lex, &mut params).unwrap();
 
-        assert_eq!(params, vec![("x", None), ("y", Some("int")), ("z", None)]);
+        assert_eq!(
+            function_info.params,
+            vec![("x", None), ("y", Some("int")), ("z", None)]
+        );
+
+        assert_eq!(function_info.docstring.unwrap(), r#""""Hello!""""#);
     }
 
     #[test]
