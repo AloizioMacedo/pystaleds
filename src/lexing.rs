@@ -1,88 +1,97 @@
 use anyhow::{anyhow, Result};
 use logos::{Lexer, Logos, Source};
+use tree_sitter::Point;
 
-use crate::ast_parsing::FunctionInfoNew;
+use crate::ast_parsing::FunctionInfo;
 
-fn get_next_function_info<'a, 'b>(
-    lexer: &'a mut Lexer<Token>,
+pub fn get_next_function_info<'a, 'b>(
+    lexer: &mut Lexer<'a, Token>,
     params: &'b mut Vec<(&'a str, Option<&'a str>)>,
-) -> Option<FunctionInfoNew<'a, 'b>> {
+) -> Option<FunctionInfo<'a, 'b>> {
+    params.clear();
+
     while let Some(next) = lexer.next() {
-        if let Ok(Token::DefStart) = next {
-            lexer.next(); // Going to function name;
+        let Ok(Token::DefStart) = next else {
+            continue;
+        };
 
-            let _function_name = lexer.slice();
-            lexer.next(); // Going to first parenthesis;
+        lexer.next(); // Going to function name;
 
-            while let Some(Ok(Token::Text)) = lexer.next() {
-                let param_name = lexer.slice();
+        let _function_name = lexer.slice();
+        lexer.next(); // Going to first parenthesis;
 
-                let next = lexer.next();
-                match next {
-                    Some(Ok(Token::Colon)) => {
-                        lexer.next();
+        while let Some(Ok(Token::Text)) = lexer.next() {
+            let param_name = lexer.slice();
 
-                        let (typ, finished_on) =
-                            extract_possibly_parenthesized_content(lexer).ok()?;
-                        params.push((param_name, Some(typ)));
+            let next = lexer.next();
+            match next {
+                Some(Ok(Token::Colon)) => {
+                    lexer.next();
 
-                        match finished_on {
-                            FinishedOn::Equals => {
-                                lexer.next();
-                                let (_, finished_on) =
-                                    extract_possibly_parenthesized_content(lexer).ok()?;
+                    let (typ, finished_on) = extract_possibly_parenthesized_content(lexer).ok()?;
+                    params.push((param_name, Some(typ)));
 
-                                if let FinishedOn::ParClose = finished_on {
-                                    break;
-                                }
-                            }
-                            FinishedOn::ParClose => {
+                    match finished_on {
+                        FinishedOn::Equals => {
+                            lexer.next();
+                            let (_, finished_on) =
+                                extract_possibly_parenthesized_content(lexer).ok()?;
+
+                            if let FinishedOn::ParClose = finished_on {
                                 break;
                             }
-                            _ => (),
                         }
-                    }
-                    Some(Ok(Token::Equals)) => {
-                        lexer.next();
-
-                        let (_, finished_on) =
-                            extract_possibly_parenthesized_content(lexer).ok()?;
-
-                        params.push((param_name, None));
-
-                        if let FinishedOn::ParClose = finished_on {
+                        FinishedOn::ParClose => {
                             break;
                         }
-                    }
-                    _ => {
-                        params.push((param_name, None));
+                        _ => (),
                     }
                 }
-            }
-
-            while let Some(Ok(x)) = lexer.next() {
-                if let Token::Colon = x {
+                Some(Ok(Token::Equals)) => {
                     lexer.next();
-                    let start = lexer.span().start;
 
-                    let docstring = if lexer.slice().starts_with(r#"""""#) {
-                        let end = lexer.source()[start + 3..]
-                            .find(r#"""""#)
-                            .expect("docstring should end");
-                        Some(&lexer.source()[start..(start + end + 6)])
-                    } else if lexer.slice().starts_with(r#"'''"#) {
-                        let end = lexer.source()[start + 3..]
-                            .find(r#"'''"#)
-                            .expect("docstring should end");
-                        Some(&lexer.source()[start..(start + end + 6)])
-                    } else {
-                        None
-                    };
+                    let (_, finished_on) = extract_possibly_parenthesized_content(lexer).ok()?;
 
-                    return Some(FunctionInfoNew { params, docstring });
+                    params.push((param_name, None));
+
+                    if let FinishedOn::ParClose = finished_on {
+                        break;
+                    }
+                }
+                _ => {
+                    params.push((param_name, None));
                 }
             }
         }
+
+        while let Some(Ok(x)) = lexer.next() {
+            if let Token::Colon = x {
+                lexer.next();
+                let start = lexer.span().start;
+
+                let docstring = if lexer.slice().starts_with(r#"""""#) {
+                    let end = lexer.source()[start + 3..]
+                        .find(r#"""""#)
+                        .expect("docstring should end");
+                    Some(&lexer.source()[start..(start + end + 6)])
+                } else if lexer.slice().starts_with(r#"'''"#) {
+                    let end = lexer.source()[start + 3..]
+                        .find(r#"'''"#)
+                        .expect("docstring should end");
+                    Some(&lexer.source()[start..(start + end + 6)])
+                } else {
+                    None
+                };
+
+                return Some(FunctionInfo {
+                    params,
+                    docstring,
+                    start_position: Point { row: 0, column: 0 },
+                });
+            }
+        }
+
+        break;
     }
 
     None
@@ -160,20 +169,7 @@ fn extract_possibly_parenthesized_content<'a>(
 
 #[derive(Logos, Debug, PartialEq)]
 #[logos(skip r"\s+")] // Ignore this regex pattern between tokens
-enum DocstringToken {
-    #[token(r#"""""#)]
-    DocstringStartDoubleQuotes,
-
-    #[token(r#"'''"#)]
-    DocstringStartSingleQuotes,
-
-    #[token(":")]
-    Colon,
-}
-
-#[derive(Logos, Debug, PartialEq)]
-#[logos(skip r"\s+")] // Ignore this regex pattern between tokens
-enum Token {
+pub enum Token {
     // Tokens can be literal strings, of any length.
     #[token("def")]
     DefStart,
@@ -280,6 +276,34 @@ mod tests {
         get_next_function_info(&mut lex, &mut params);
 
         assert_eq!(params, vec![("a", None), ("b", Some("str")), ("c", None)]);
+    }
+
+    #[test]
+    fn test_get_function_info3() {
+        let def = r#"x=2
+
+def f(a,b,c):
+    """Hello!"""
+
+print(2)
+yay = {"a": 2}
+
+def g(x,y):
+    """Hello!"""
+
+    "#;
+
+        let mut lex = Token::lexer(def);
+
+        let mut params = Vec::new();
+
+        get_next_function_info(&mut lex, &mut params);
+
+        assert_eq!(params, vec![("a", None), ("b", None), ("c", None)]);
+
+        get_next_function_info(&mut lex, &mut params);
+
+        assert_eq!(params, vec![("x", None), ("y", None)]);
     }
 
     #[test]
