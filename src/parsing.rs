@@ -45,6 +45,10 @@ pub fn parse_google_docstring(
         args = &args[..c];
     };
 
+    if let Some(c) = args.find("Raises:\n") {
+        args = &args[..c];
+    };
+
     if break_on_empty_line {
         if let Some(c) = args.find("\n\n") {
             args = &args[..c];
@@ -73,6 +77,7 @@ pub fn parse_google_docstring(
             };
 
             let typ = typ.trim_start_matches('(').trim_end_matches(')');
+            let typ = typ.trim_end_matches(", optional");
 
             params.push((name, Some(typ)));
         }
