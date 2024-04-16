@@ -865,7 +865,7 @@ def other_func(x,y,z):
             DocstringStyle::Google
         ));
 
-        let source_code = r#"def f(a, x=2):
+        let source_code = r#"def f(a, x=2):  # Comment to try and screw up the lexer.
     """
     Hey.
 
