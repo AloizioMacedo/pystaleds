@@ -561,7 +561,7 @@ def other_func(x,y,z):
     return x+y+2*z
 "#;
 
-        let x = respects_rules(
+        assert!(!respects_rules(
             &mut parser,
             source_code,
             None,
@@ -571,9 +571,17 @@ def other_func(x,y,z):
             false,
             true,
             DocstringStyle::Google,
-        );
+        ));
 
-        assert!(!x);
+        assert!(!respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            false,
+            false,
+            true,
+            DocstringStyle::Google,
+        ))
     }
 
     #[test]
@@ -600,7 +608,7 @@ def other_func(x,y,z):
     return x+y+2*z
 "#;
 
-        let x = respects_rules(
+        assert!(respects_rules(
             &mut parser,
             source_code,
             None,
@@ -610,9 +618,17 @@ def other_func(x,y,z):
             true,
             true,
             DocstringStyle::Google,
-        );
+        ));
 
-        assert!(x);
+        assert!(respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            false,
+            true,
+            true,
+            DocstringStyle::Google,
+        ));
     }
 
     #[test]
@@ -633,7 +649,7 @@ def other_func(x,y,z):
     return x+y
 "#;
 
-        let x = respects_rules(
+        assert!(!respects_rules(
             &mut parser,
             source_code,
             None,
@@ -643,9 +659,17 @@ def other_func(x,y,z):
             true,
             false,
             DocstringStyle::Google,
-        );
+        ));
 
-        assert!(!x);
+        assert!(!respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            false,
+            DocstringStyle::Google,
+        ));
 
         let source_code = r#"def add(x: int,y):
     """This is a docstring."""
@@ -660,7 +684,7 @@ def other_func(x,y,z):
     return x+y
 "#;
 
-        let x = respects_rules(
+        assert!(respects_rules(
             &mut parser,
             source_code,
             None,
@@ -670,9 +694,17 @@ def other_func(x,y,z):
             true,
             false,
             DocstringStyle::Google,
-        );
+        ));
 
-        assert!(x);
+        assert!(respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            false,
+            DocstringStyle::Google,
+        ));
     }
 
     #[test]
@@ -694,6 +726,16 @@ def other_func(x,y,z):
             DocstringStyle::Google
         ));
 
+        assert!(respects_rules_through_lexing(
+            &source_code,
+            Some(&path),
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Google
+        ));
+
         let path = std::path::PathBuf::from("test_folder/test_cp.py");
         let source_code = std::fs::read_to_string("test_folder/test_cp.py").unwrap();
 
@@ -701,6 +743,16 @@ def other_func(x,y,z):
             &mut parser,
             &source_code,
             None,
+            Some(&path),
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Google
+        ));
+
+        assert!(!respects_rules_through_lexing(
+            &source_code,
             Some(&path),
             false,
             true,
@@ -737,7 +789,17 @@ def other_func(x,y,z):
             true,
             true,
             DocstringStyle::Google
-        ))
+        ));
+
+        assert!(respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Google
+        ));
     }
 
     #[test]
@@ -769,10 +831,30 @@ def other_func(x,y,z):
             DocstringStyle::Google
         ));
 
+        assert!(!respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Google
+        ));
+
         assert!(respects_rules(
             &mut parser,
             source_code,
             None,
+            None,
+            true,
+            true,
+            true,
+            true,
+            DocstringStyle::Google
+        ));
+
+        assert!(respects_rules_through_lexing(
+            source_code,
             None,
             true,
             true,
@@ -809,10 +891,30 @@ def other_func(x,y,z):
             DocstringStyle::Numpy
         ));
 
+        assert!(!respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Numpy
+        ));
+
         assert!(respects_rules(
             &mut parser,
             source_code,
             None,
+            None,
+            true,
+            true,
+            true,
+            true,
+            DocstringStyle::Numpy
+        ));
+
+        assert!(respects_rules_through_lexing(
+            source_code,
             None,
             true,
             true,
@@ -956,6 +1058,16 @@ def other_func(x,y,z):
             true,
             true,
             DocstringStyle::AutoDetect
-        ))
+        ));
+
+        assert!(respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::AutoDetect
+        ));
     }
 }
