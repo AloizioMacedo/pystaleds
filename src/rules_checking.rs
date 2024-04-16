@@ -201,6 +201,8 @@ fn is_function_info_valid(
 mod tests {
     use tracing_test::traced_test;
 
+    use crate::ast_parsing::FunctionLocation;
+
     use super::*;
 
     fn get_parser() -> Parser {
@@ -219,7 +221,7 @@ mod tests {
         let function_info = FunctionInfo {
             params: &[("x", Some("int")), ("y", Some("str"))],
             docstring: None,
-            function_name: "",
+            function_name: FunctionLocation::Name(""),
         };
 
         assert!(is_function_info_valid(
@@ -258,7 +260,7 @@ mod tests {
                     x: Hehehe.
                 """"#,
             ),
-            function_name: "",
+            function_name: FunctionLocation::Name(""),
         };
 
         assert!(!is_function_info_valid(
@@ -283,7 +285,7 @@ mod tests {
                     y: Nope.
                 """"#,
             ),
-            function_name: "",
+            function_name: FunctionLocation::Name(""),
         };
 
         assert!(is_function_info_valid(
@@ -311,7 +313,7 @@ mod tests {
                     Hehehe
                 """"#,
             ),
-            function_name: "",
+            function_name: FunctionLocation::Name(""),
         };
 
         assert!(!is_function_info_valid(
@@ -343,7 +345,7 @@ mod tests {
                 ...
                 """"#,
             ),
-            function_name: "",
+            function_name: FunctionLocation::Name(""),
         };
 
         assert!(is_function_info_valid(
@@ -375,7 +377,7 @@ mod tests {
                     ...
                 """"#,
             ),
-            function_name: "",
+            function_name: FunctionLocation::Name(""),
         };
 
         assert!(is_function_info_valid(
@@ -418,7 +420,7 @@ mod tests {
                     ...
                 """"#,
             ),
-            function_name: "",
+            function_name: FunctionLocation::Name(""),
         };
 
         assert!(is_function_info_valid(

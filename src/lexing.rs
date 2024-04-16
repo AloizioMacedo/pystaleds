@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use logos::{Lexer, Logos, Source};
 
-use crate::ast_parsing::FunctionInfo;
+use crate::ast_parsing::{FunctionInfo, FunctionLocation};
 
 pub fn get_next_function_info<'a, 'b>(
     lexer: &mut Lexer<'a, Token>,
@@ -15,7 +15,7 @@ pub fn get_next_function_info<'a, 'b>(
         };
 
         lexer.next(); // Going to function name;
-        let function_name = lexer.slice();
+        let function_name = FunctionLocation::Name(lexer.slice());
 
         lexer.next(); // Going to first parenthesis;
         let mut current = lexer.next(); // Going to first variable;
@@ -272,7 +272,7 @@ mod tests {
             vec![("x", None), ("y", Some("int")), ("z", None)]
         );
 
-        assert_eq!(function_info.function_name, "f");
+        assert_eq!(function_info.function_name, FunctionLocation::Name("f"));
 
         assert_eq!(function_info.docstring.unwrap(), r#""""Hello!""""#);
     }

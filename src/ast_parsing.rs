@@ -1,11 +1,28 @@
+use std::fmt::Display;
+
 use crate::parsing::extract_docstring;
 use tree_sitter::Node;
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub(crate) enum FunctionLocation<'a> {
+    Name(&'a str),
+    Row(usize),
+}
+
+impl<'a> Display for FunctionLocation<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FunctionLocation::Name(x) => f.write_str(x),
+            FunctionLocation::Row(x) => f.write_str(&format!("{}", x)),
+        }
+    }
+}
 
 /// Information about a function's signature and docstring.
 pub(crate) struct FunctionInfo<'a, 'b> {
     pub(crate) params: &'b [(&'a str, Option<&'a str>)],
     pub(crate) docstring: Option<&'a str>,
-    pub(crate) function_name: &'a str,
+    pub(crate) function_name: FunctionLocation<'a>,
 }
 
 /// Extracts function information from a node if it is a function definition.
@@ -22,7 +39,7 @@ pub(crate) fn get_function_signature<'a, 'b>(
         return None;
     }
 
-    let function_name = node.utf8_text(source_code.as_bytes()).ok()?;
+    let function_name = FunctionLocation::Row(node.start_position().row);
 
     let params_node = node.child_by_field_name("parameters")?;
     params.clear();
