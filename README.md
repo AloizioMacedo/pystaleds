@@ -167,7 +167,8 @@ just stopped the test.
 
 | Checker                                                 | pandas [ms] | numpy [ms] | fastapi [ms] | test_folder [ms] |
 | ------------------------------------------------------- | ----------- | ---------- | ------------ | ---------------- |
-| pystaleds                                               | 616.0       | 370.4      | 102.5        | 4.1              |
+| pystaleds                                               | 21.7        | 17.9       | 19.2         | 2.6              |
+| pystaleds (with tree-sitter parsing)                    | 616.0       | 370.4      | 102.5        | 4.1              |
 | [pydoclint](https://github.com/jsh9/pydoclint)          | 7418        | 3513       | 714.6        | 62.5             |
 | [darglint](https://github.com/terrencepreilly/darglint) | NaN         | NaN        | 1152         | 125.3            |
 | [docsig](https://github.com/jshwi/docsig)               | NaN         | NaN        | 19353        | 527.0            |
