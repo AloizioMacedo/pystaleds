@@ -29,7 +29,10 @@ pub fn get_next_function_info<'a, 'b>(
                     lexer.next();
 
                     let (typ, finished_on) = extract_possibly_parenthesized_content(lexer).ok()?;
-                    params.push((param_name, Some(typ)));
+
+                    if param_name != "self" {
+                        params.push((param_name, Some(typ)));
+                    }
 
                     match finished_on {
                         FinishedOn::Equals => {
@@ -52,38 +55,44 @@ pub fn get_next_function_info<'a, 'b>(
 
                     let (_, finished_on) = extract_possibly_parenthesized_content(lexer).ok()?;
 
-                    params.push((param_name, None));
+                    if param_name != "self" {
+                        params.push((param_name, None));
+                    }
 
                     if let FinishedOn::ParClose = finished_on {
                         break;
                     }
                 }
                 _ => {
-                    params.push((param_name, None));
+                    if param_name != "self" {
+                        params.push((param_name, None));
+                    }
                 }
             }
 
             current = lexer.next();
         }
 
-        while let Some(Ok(ref t)) = current {
-            if let Token::Colon = t {
+        while let Some(ref t) = current {
+            if let Ok(Token::Colon) = t {
                 break;
             }
 
             current = lexer.next();
         }
 
-        while let Some(Ok(ref t)) = current {
-            if let Token::Text = t {
+        while let Some(t) = current {
+            if let Ok(Token::Text) = t {
                 let start = lexer.span().start;
 
-                let docstring = if lexer.slice().starts_with(r#"""""#) {
+                let slice = lexer.slice();
+
+                let docstring = if slice.starts_with(r#"""""#) {
                     let end = lexer.source()[start + 3..]
                         .find(r#"""""#)
                         .expect("docstring should end");
                     Some(&lexer.source()[start..(start + end + 6)])
-                } else if lexer.slice().starts_with(r#"'''"#) {
+                } else if slice.starts_with(r#"'''"#) {
                     let end = lexer.source()[start + 3..]
                         .find(r#"'''"#)
                         .expect("docstring should end");
@@ -219,7 +228,7 @@ pub enum Token {
     Kwargs,
 
     // Or regular expressions.
-    #[regex("[a-zA-Z0-9\'\"_]+")]
+    #[regex("[a-zA-Z0-9\'\"_|]+")]
     Text,
 }
 

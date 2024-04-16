@@ -1072,4 +1072,57 @@ def other_func(x,y,z):
             DocstringStyle::AutoDetect
         ));
     }
+
+    #[test]
+    fn test_real_code2() {
+        let mut parser = get_parser();
+
+        let source_code = r#"
+        @final
+        @staticmethod
+        def _validate_subplots_kwarg(
+            subplots: bool | Sequence[Sequence[str]], data: Series | DataFrame, kind: str
+        ) -> bool | list[tuple[int, ...]]:
+            """
+            Validate the subplots parameter
+
+            - check type and content
+            - check for duplicate columns
+            - check for invalid column names
+            - convert column names into indices
+            - add missing columns in a group of their own
+            See comments in code below for more details.
+
+            Parameters
+            ----------
+            subplots : subplots parameters as passed to PlotAccessor
+
+            Returns
+            -------
+            validated subplots : a bool or a list of tuples of column indices. Columns
+            in the same tuple will be grouped together in the resulting plot.
+            """"#;
+
+        assert!(!respects_rules(
+            &mut parser,
+            source_code,
+            None,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::AutoDetect
+        ));
+
+        assert!(!respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::AutoDetect
+        ));
+    }
 }
