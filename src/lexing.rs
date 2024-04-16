@@ -15,11 +15,12 @@ pub fn get_next_function_info<'a, 'b>(
         };
 
         lexer.next(); // Going to function name;
-
         let function_name = lexer.slice();
-        lexer.next(); // Going to first parenthesis;
 
-        while let Some(Ok(Token::Text)) = lexer.next() {
+        lexer.next(); // Going to first parenthesis;
+        let mut current = lexer.next(); // Going to first variable;
+
+        while let Some(Ok(Token::Text)) = current {
             let param_name = lexer.slice();
 
             let next = lexer.next();
@@ -61,11 +62,20 @@ pub fn get_next_function_info<'a, 'b>(
                     params.push((param_name, None));
                 }
             }
+
+            current = lexer.next();
         }
 
-        while let Some(Ok(x)) = lexer.next() {
-            if let Token::Colon = x {
-                lexer.next();
+        while let Some(Ok(ref t)) = current {
+            if let Token::Colon = t {
+                break;
+            }
+
+            current = lexer.next();
+        }
+
+        while let Some(Ok(ref t)) = current {
+            if let Token::Text = t {
                 let start = lexer.span().start;
 
                 let docstring = if lexer.slice().starts_with(r#"""""#) {
@@ -88,6 +98,8 @@ pub fn get_next_function_info<'a, 'b>(
                     function_name,
                 });
             }
+
+            current = lexer.next();
         }
 
         break;
@@ -167,7 +179,7 @@ fn extract_possibly_parenthesized_content<'a>(
 }
 
 #[derive(Logos, Debug, PartialEq)]
-#[logos(skip r"\s+")] // Ignore this regex pattern between tokens
+#[logos(skip r"(\s+)|(\#.*\n)")] // Ignore this regex pattern between tokens
 pub enum Token {
     // Tokens can be literal strings, of any length.
     #[token("def")]
@@ -259,6 +271,8 @@ mod tests {
             function_info.params,
             vec![("x", None), ("y", Some("int")), ("z", None)]
         );
+
+        assert_eq!(function_info.function_name, "f");
 
         assert_eq!(function_info.docstring.unwrap(), r#""""Hello!""""#);
     }

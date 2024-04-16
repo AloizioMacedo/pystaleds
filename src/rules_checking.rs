@@ -448,7 +448,7 @@ mod tests {
     return x-y
 "#;
 
-        let x = respects_rules(
+        assert!(respects_rules(
             &mut parser,
             source_code,
             None,
@@ -458,9 +458,17 @@ mod tests {
             true,
             true,
             DocstringStyle::Google,
-        );
+        ));
 
-        assert!(x);
+        assert!(respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Google,
+        ));
 
         let source_code = r#"def sub(x, y):
     """This is a multi-line docstring.
@@ -472,7 +480,7 @@ mod tests {
     return x-y
 "#;
 
-        let x = respects_rules(
+        assert!(!respects_rules(
             &mut parser,
             source_code,
             None,
@@ -482,9 +490,17 @@ mod tests {
             true,
             true,
             DocstringStyle::Google,
-        );
+        ));
 
-        assert!(!x);
+        assert!(!respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Google,
+        ));
 
         let source_code = r#"def sub(x, y):
     """This is a multi-line docstring.
@@ -498,7 +514,7 @@ mod tests {
     return x-y
 "#;
 
-        let x = respects_rules(
+        assert!(!respects_rules(
             &mut parser,
             source_code,
             None,
@@ -508,9 +524,17 @@ mod tests {
             true,
             true,
             DocstringStyle::Google,
-        );
+        ));
 
-        assert!(!x);
+        assert!(!respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Google,
+        ));
     }
 
     #[test]
