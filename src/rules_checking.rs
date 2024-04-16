@@ -1,10 +1,12 @@
 use std::path::Path;
 
 use clap::ValueEnum;
+use logos::Lexer;
 use tracing::Level;
 use tree_sitter::{Node, Parser, Tree, TreeCursor};
 
 use crate::ast_parsing::{get_function_signature, FunctionInfo};
+use crate::lexing::get_next_function_info;
 use crate::parsing::{parse_google_docstring, parse_numpy_docstring};
 
 #[derive(Default, Clone, Copy, ValueEnum)]
@@ -77,6 +79,39 @@ pub fn respects_rules(
     success
 }
 
+/// Checks if the source code respects the specified rules.
+#[allow(clippy::too_many_arguments)]
+pub fn respects_rules_through_lexing(
+    source_code: &str,
+    path: Option<&Path>,
+    break_on_empty_line: bool,
+    succeed_if_no_docstring: bool,
+    succeed_if_no_args_in_docstring: bool,
+    succeed_if_docstrings_are_not_typed: bool,
+    docstyle: DocstringStyle,
+) -> bool {
+    let mut lexer = Lexer::new(source_code);
+
+    let mut success = true;
+    let mut params = Vec::with_capacity(8);
+
+    while let Some(info) = get_next_function_info(&mut lexer, &mut params) {
+        if !is_function_info_valid(
+            &info,
+            path,
+            break_on_empty_line,
+            succeed_if_no_docstring,
+            succeed_if_no_args_in_docstring,
+            succeed_if_docstrings_are_not_typed,
+            docstyle,
+        ) {
+            success = false;
+        }
+    }
+
+    success
+}
+
 /// Checks if a given function respects the specified rules.
 fn is_function_info_valid(
     info: &FunctionInfo,
@@ -93,9 +128,9 @@ fn is_function_info_valid(
         if !succeed_if_no_docstring {
             tracing::event!(
                 Level::ERROR,
-                "{}Line {}: Docstring missing",
+                "{}{}: Docstring missing",
                 path,
-                info.start_position.row + 1
+                info.function_name
             );
         }
 
@@ -113,9 +148,9 @@ fn is_function_info_valid(
         if !succeed_if_no_args_in_docstring {
             tracing::event!(
                 Level::ERROR,
-                "{}Line {}: Args missing from docstring",
+                "{}{}: Args missing from docstring",
                 path,
-                info.start_position.row + 1
+                info.function_name
             );
         }
 
@@ -138,9 +173,9 @@ fn is_function_info_valid(
         if !is_valid {
             tracing::event!(
                 Level::ERROR,
-                "{}Line {}: Args from function: {:?}. Args from docstring: {:?}",
+                "{}{}: Args from function: {:?}. Args from docstring: {:?}",
                 path,
-                info.start_position.row + 1,
+                info.function_name,
                 info.params,
                 args_from_docstring,
             );
@@ -153,8 +188,8 @@ fn is_function_info_valid(
         if !is_valid {
             tracing::event!(
                 Level::ERROR,
-                "Docstring args not matching at function start on  {:?}",
-                info.start_position
+                "Docstring args not matching at function {}",
+                info.function_name
             );
         }
 
@@ -165,7 +200,8 @@ fn is_function_info_valid(
 #[cfg(test)]
 mod tests {
     use tracing_test::traced_test;
-    use tree_sitter::Point;
+
+    use crate::ast_parsing::FunctionLocation;
 
     use super::*;
 
@@ -185,7 +221,7 @@ mod tests {
         let function_info = FunctionInfo {
             params: &[("x", Some("int")), ("y", Some("str"))],
             docstring: None,
-            start_position: Point { row: 0, column: 0 },
+            function_name: FunctionLocation::Name(""),
         };
 
         assert!(is_function_info_valid(
@@ -224,7 +260,7 @@ mod tests {
                     x: Hehehe.
                 """"#,
             ),
-            start_position: Point { row: 0, column: 0 },
+            function_name: FunctionLocation::Name(""),
         };
 
         assert!(!is_function_info_valid(
@@ -249,7 +285,7 @@ mod tests {
                     y: Nope.
                 """"#,
             ),
-            start_position: Point { row: 0, column: 0 },
+            function_name: FunctionLocation::Name(""),
         };
 
         assert!(is_function_info_valid(
@@ -277,7 +313,7 @@ mod tests {
                     Hehehe
                 """"#,
             ),
-            start_position: Point { row: 0, column: 0 },
+            function_name: FunctionLocation::Name(""),
         };
 
         assert!(!is_function_info_valid(
@@ -309,7 +345,7 @@ mod tests {
                 ...
                 """"#,
             ),
-            start_position: Point { row: 0, column: 0 },
+            function_name: FunctionLocation::Name(""),
         };
 
         assert!(is_function_info_valid(
@@ -341,7 +377,7 @@ mod tests {
                     ...
                 """"#,
             ),
-            start_position: Point { row: 0, column: 0 },
+            function_name: FunctionLocation::Name(""),
         };
 
         assert!(is_function_info_valid(
@@ -384,7 +420,7 @@ mod tests {
                     ...
                 """"#,
             ),
-            start_position: Point { row: 0, column: 0 },
+            function_name: FunctionLocation::Name(""),
         };
 
         assert!(is_function_info_valid(
@@ -414,7 +450,7 @@ mod tests {
     return x-y
 "#;
 
-        let x = respects_rules(
+        assert!(respects_rules(
             &mut parser,
             source_code,
             None,
@@ -424,9 +460,17 @@ mod tests {
             true,
             true,
             DocstringStyle::Google,
-        );
+        ));
 
-        assert!(x);
+        assert!(respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Google,
+        ));
 
         let source_code = r#"def sub(x, y):
     """This is a multi-line docstring.
@@ -438,7 +482,7 @@ mod tests {
     return x-y
 "#;
 
-        let x = respects_rules(
+        assert!(!respects_rules(
             &mut parser,
             source_code,
             None,
@@ -448,9 +492,17 @@ mod tests {
             true,
             true,
             DocstringStyle::Google,
-        );
+        ));
 
-        assert!(!x);
+        assert!(!respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Google,
+        ));
 
         let source_code = r#"def sub(x, y):
     """This is a multi-line docstring.
@@ -464,7 +516,7 @@ mod tests {
     return x-y
 "#;
 
-        let x = respects_rules(
+        assert!(!respects_rules(
             &mut parser,
             source_code,
             None,
@@ -474,9 +526,17 @@ mod tests {
             true,
             true,
             DocstringStyle::Google,
-        );
+        ));
 
-        assert!(!x);
+        assert!(!respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Google,
+        ));
     }
 
     #[test]
@@ -503,7 +563,7 @@ def other_func(x,y,z):
     return x+y+2*z
 "#;
 
-        let x = respects_rules(
+        assert!(!respects_rules(
             &mut parser,
             source_code,
             None,
@@ -513,9 +573,17 @@ def other_func(x,y,z):
             false,
             true,
             DocstringStyle::Google,
-        );
+        ));
 
-        assert!(!x);
+        assert!(!respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            false,
+            false,
+            true,
+            DocstringStyle::Google,
+        ))
     }
 
     #[test]
@@ -542,7 +610,7 @@ def other_func(x,y,z):
     return x+y+2*z
 "#;
 
-        let x = respects_rules(
+        assert!(respects_rules(
             &mut parser,
             source_code,
             None,
@@ -552,9 +620,17 @@ def other_func(x,y,z):
             true,
             true,
             DocstringStyle::Google,
-        );
+        ));
 
-        assert!(x);
+        assert!(respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            false,
+            true,
+            true,
+            DocstringStyle::Google,
+        ));
     }
 
     #[test]
@@ -575,7 +651,7 @@ def other_func(x,y,z):
     return x+y
 "#;
 
-        let x = respects_rules(
+        assert!(!respects_rules(
             &mut parser,
             source_code,
             None,
@@ -585,9 +661,17 @@ def other_func(x,y,z):
             true,
             false,
             DocstringStyle::Google,
-        );
+        ));
 
-        assert!(!x);
+        assert!(!respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            false,
+            DocstringStyle::Google,
+        ));
 
         let source_code = r#"def add(x: int,y):
     """This is a docstring."""
@@ -602,7 +686,7 @@ def other_func(x,y,z):
     return x+y
 "#;
 
-        let x = respects_rules(
+        assert!(respects_rules(
             &mut parser,
             source_code,
             None,
@@ -612,9 +696,17 @@ def other_func(x,y,z):
             true,
             false,
             DocstringStyle::Google,
-        );
+        ));
 
-        assert!(x);
+        assert!(respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            false,
+            DocstringStyle::Google,
+        ));
     }
 
     #[test]
@@ -636,6 +728,16 @@ def other_func(x,y,z):
             DocstringStyle::Google
         ));
 
+        assert!(respects_rules_through_lexing(
+            &source_code,
+            Some(&path),
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Google
+        ));
+
         let path = std::path::PathBuf::from("test_folder/test_cp.py");
         let source_code = std::fs::read_to_string("test_folder/test_cp.py").unwrap();
 
@@ -643,6 +745,16 @@ def other_func(x,y,z):
             &mut parser,
             &source_code,
             None,
+            Some(&path),
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Google
+        ));
+
+        assert!(!respects_rules_through_lexing(
+            &source_code,
             Some(&path),
             false,
             true,
@@ -679,7 +791,17 @@ def other_func(x,y,z):
             true,
             true,
             DocstringStyle::Google
-        ))
+        ));
+
+        assert!(respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Google
+        ));
     }
 
     #[test]
@@ -711,6 +833,16 @@ def other_func(x,y,z):
             DocstringStyle::Google
         ));
 
+        assert!(!respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Google
+        ));
+
         assert!(respects_rules(
             &mut parser,
             source_code,
@@ -723,7 +855,17 @@ def other_func(x,y,z):
             DocstringStyle::Google
         ));
 
-        let source_code = r#"def f(a, x=2):
+        assert!(respects_rules_through_lexing(
+            source_code,
+            None,
+            true,
+            true,
+            true,
+            true,
+            DocstringStyle::Google
+        ));
+
+        let source_code = r#"def f(a, x=2):  # Comment to try and screw up the lexer.
     """
     Hey.
 
@@ -751,10 +893,30 @@ def other_func(x,y,z):
             DocstringStyle::Numpy
         ));
 
+        assert!(!respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::Numpy
+        ));
+
         assert!(respects_rules(
             &mut parser,
             source_code,
             None,
+            None,
+            true,
+            true,
+            true,
+            true,
+            DocstringStyle::Numpy
+        ));
+
+        assert!(respects_rules_through_lexing(
+            source_code,
             None,
             true,
             true,
@@ -898,6 +1060,69 @@ def other_func(x,y,z):
             true,
             true,
             DocstringStyle::AutoDetect
-        ))
+        ));
+
+        assert!(respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::AutoDetect
+        ));
+    }
+
+    #[test]
+    fn test_real_code2() {
+        let mut parser = get_parser();
+
+        let source_code = r#"
+        @final
+        @staticmethod
+        def _validate_subplots_kwarg(
+            subplots: bool | Sequence[Sequence[str]], data: Series | DataFrame, kind: str
+        ) -> bool | list[tuple[int, ...]]:
+            """
+            Validate the subplots parameter
+
+            - check type and content
+            - check for duplicate columns
+            - check for invalid column names
+            - convert column names into indices
+            - add missing columns in a group of their own
+            See comments in code below for more details.
+
+            Parameters
+            ----------
+            subplots : subplots parameters as passed to PlotAccessor
+
+            Returns
+            -------
+            validated subplots : a bool or a list of tuples of column indices. Columns
+            in the same tuple will be grouped together in the resulting plot.
+            """"#;
+
+        assert!(!respects_rules(
+            &mut parser,
+            source_code,
+            None,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::AutoDetect
+        ));
+
+        assert!(!respects_rules_through_lexing(
+            source_code,
+            None,
+            false,
+            true,
+            true,
+            true,
+            DocstringStyle::AutoDetect
+        ));
     }
 }

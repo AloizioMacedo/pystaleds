@@ -1,9 +1,9 @@
 use std::{env::set_current_dir, path::Path, sync::atomic::AtomicU32};
 
 use anyhow::{anyhow, Result};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use glob::glob;
-use pystaleds::rules_checking::{respects_rules, DocstringStyle};
+use pystaleds::rules_checking::{respects_rules, respects_rules_through_lexing, DocstringStyle};
 use rayon::prelude::*;
 use walkdir::DirEntry;
 
@@ -33,6 +33,11 @@ struct Args {
     /// raises an error if the docstring's type and the signature's type are mismatched.
     forbid_untyped_docstrings: bool,
 
+    #[arg(short, long, default_value_t, value_enum)]
+    /// Which parsing to use. Defaults to simple lexer, which is faster. Select
+    /// `tree-sitter` in case you might be getting false positives/negatives.
+    parser: CompliancyChecker,
+
     #[arg(short, long)]
     /// Runs over glob matches considering root to be the path specified in the command.
     /// Disconsiders the allow_hidden flag.
@@ -41,6 +46,57 @@ struct Args {
     #[arg(short, long, default_value_t, value_enum)]
     /// Determines the docstring style to consider for parsing.
     docstyle: DocstringStyle,
+}
+
+trait Compliancy {
+    fn is_file_compliant(
+        &self,
+        path: &Path,
+        break_on_empty_line: bool,
+        forbid_no_docstring: bool,
+        forbid_no_args_in_docstring: bool,
+        forbid_untyped_docstrings: bool,
+        docstyle: DocstringStyle,
+    ) -> Result<bool>;
+}
+
+#[derive(Default, Clone, Copy, ValueEnum)]
+enum CompliancyChecker {
+    TreeSitter,
+
+    #[default]
+    Lexer,
+}
+
+impl Compliancy for CompliancyChecker {
+    fn is_file_compliant(
+        &self,
+        path: &Path,
+        break_on_empty_line: bool,
+        forbid_no_docstring: bool,
+        forbid_no_args_in_docstring: bool,
+        forbid_untyped_docstrings: bool,
+        docstyle: DocstringStyle,
+    ) -> Result<bool> {
+        match self {
+            CompliancyChecker::Lexer => is_file_compliant_lexing(
+                path,
+                break_on_empty_line,
+                forbid_no_docstring,
+                forbid_no_args_in_docstring,
+                forbid_untyped_docstrings,
+                docstyle,
+            ),
+            CompliancyChecker::TreeSitter => is_file_compliant_tree_sitter(
+                path,
+                break_on_empty_line,
+                forbid_no_docstring,
+                forbid_no_args_in_docstring,
+                forbid_untyped_docstrings,
+                docstyle,
+            ),
+        }
+    }
 }
 
 /// Determines if a file or folder is hidden, i.e. if it starts with '.'.
@@ -57,13 +113,16 @@ fn main() -> Result<()> {
         .without_time()
         .with_writer(non_blocking)
         .init();
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(0)
-        .stack_size(100_000_000) // TODO: Make the algorithm non-recursive and remove the stack expansion.
-        .build_global()
-        .expect("thread pool should be possible to initialize");
 
     let args = Args::parse();
+
+    if let CompliancyChecker::TreeSitter = args.parser {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(0)
+            .stack_size(100_000_000) // TODO: Make the algorithm non-recursive and remove the stack expansion.
+            .build_global()
+            .expect("thread pool should be possible to initialize");
+    }
 
     let path = Path::new(&args.path);
 
@@ -114,7 +173,7 @@ fn main() -> Result<()> {
         } else {
             // In this branch, path is a file.
 
-            if is_file_compliant(
+            if args.parser.is_file_compliant(
                 path,
                 args.break_on_empty_line,
                 args.forbid_no_docstring,
@@ -144,7 +203,7 @@ fn main() -> Result<()> {
 /// Determines if the file has errors or not, increasing error count if it does.
 fn assess_success(entry: &Path, args: &Args, total_errors: &AtomicU32) {
     if entry.is_file() && entry.extension() == Some(&std::ffi::OsString::from("py")) {
-        let Ok(success) = is_file_compliant(
+        let Ok(success) = args.parser.is_file_compliant(
             entry,
             args.break_on_empty_line,
             args.forbid_no_docstring,
@@ -162,7 +221,7 @@ fn assess_success(entry: &Path, args: &Args, total_errors: &AtomicU32) {
 }
 
 /// Determines if a file is compliant to the specified rules.
-fn is_file_compliant(
+fn is_file_compliant_tree_sitter(
     path: &Path,
     break_on_empty_line: bool,
     forbid_no_docstring: bool,
@@ -179,6 +238,33 @@ fn is_file_compliant(
         &mut parser,
         &contents,
         None,
+        Some(path),
+        break_on_empty_line,
+        !forbid_no_docstring,
+        !forbid_no_args_in_docstring,
+        !forbid_untyped_docstrings,
+        docstyle,
+    );
+
+    Ok(success)
+}
+
+/// Determines if a file is compliant to the specified rules.
+fn is_file_compliant_lexing(
+    path: &Path,
+    break_on_empty_line: bool,
+    forbid_no_docstring: bool,
+    forbid_no_args_in_docstring: bool,
+    forbid_untyped_docstrings: bool,
+    docstyle: DocstringStyle,
+) -> Result<bool> {
+    let mut parser = tree_sitter::Parser::new();
+    parser.set_language(&tree_sitter_python::language())?;
+
+    let contents = std::fs::read_to_string(path)?;
+
+    let success = respects_rules_through_lexing(
+        &contents,
         Some(path),
         break_on_empty_line,
         !forbid_no_docstring,
