@@ -48,6 +48,7 @@ pub fn respects_rules(
     succeed_if_no_docstring: bool,
     succeed_if_no_args_in_docstring: bool,
     succeed_if_docstrings_are_not_typed: bool,
+    skip_args_and_kwargs: bool,
     docstyle: DocstringStyle,
 ) -> bool {
     let tree = parser
@@ -69,6 +70,7 @@ pub fn respects_rules(
                 succeed_if_no_docstring,
                 succeed_if_no_args_in_docstring,
                 succeed_if_docstrings_are_not_typed,
+                skip_args_and_kwargs,
                 docstyle,
             ) {
                 success = false;
@@ -88,7 +90,7 @@ pub fn respects_rules_through_lexing(
     succeed_if_no_docstring: bool,
     succeed_if_no_args_in_docstring: bool,
     succeed_if_docstrings_are_not_typed: bool,
-    args_and_kwargs: bool,
+    skip_args_and_kwargs: bool,
     docstyle: DocstringStyle,
 ) -> bool {
     let mut lexer = Lexer::new(source_code);
@@ -96,7 +98,7 @@ pub fn respects_rules_through_lexing(
     let mut success = true;
     let mut params = Vec::with_capacity(8);
 
-    while let Some(info) = get_next_function_info(&mut lexer, &mut params, args_and_kwargs) {
+    while let Some(info) = get_next_function_info(&mut lexer, &mut params, skip_args_and_kwargs) {
         if !is_function_info_valid(
             &info,
             path,
@@ -104,6 +106,7 @@ pub fn respects_rules_through_lexing(
             succeed_if_no_docstring,
             succeed_if_no_args_in_docstring,
             succeed_if_docstrings_are_not_typed,
+            skip_args_and_kwargs,
             docstyle,
         ) {
             success = false;
@@ -114,6 +117,7 @@ pub fn respects_rules_through_lexing(
 }
 
 /// Checks if a given function respects the specified rules.
+#[allow(clippy::too_many_arguments)]
 fn is_function_info_valid(
     info: &FunctionInfo,
     path: Option<&Path>,
@@ -121,6 +125,7 @@ fn is_function_info_valid(
     succeed_if_no_docstring: bool,
     succeed_if_no_args_in_docstring: bool,
     succeed_if_docstrings_are_not_typed: bool,
+    skip_args_and_kwargs: bool,
     docstyle: DocstringStyle,
 ) -> bool {
     let path = path.map_or("".to_string(), |x| x.to_string_lossy().to_string() + ": ");
@@ -139,10 +144,17 @@ fn is_function_info_valid(
     };
 
     let args_from_docstring = match docstyle {
-        DocstringStyle::Google => parse_google_docstring(docstring, break_on_empty_line),
-        DocstringStyle::Numpy => parse_numpy_docstring(docstring, break_on_empty_line),
-        DocstringStyle::AutoDetect => parse_google_docstring(docstring, break_on_empty_line)
-            .or(parse_numpy_docstring(docstring, break_on_empty_line)),
+        DocstringStyle::Google => {
+            parse_google_docstring(docstring, break_on_empty_line, skip_args_and_kwargs)
+        }
+        DocstringStyle::Numpy => {
+            parse_numpy_docstring(docstring, break_on_empty_line, skip_args_and_kwargs)
+        }
+        DocstringStyle::AutoDetect => {
+            parse_google_docstring(docstring, break_on_empty_line, skip_args_and_kwargs).or(
+                parse_numpy_docstring(docstring, break_on_empty_line, skip_args_and_kwargs),
+            )
+        }
     };
 
     let Some(args_from_docstring) = args_from_docstring else {
@@ -232,6 +244,7 @@ mod tests {
             true,
             true,
             true,
+            true,
             DocstringStyle::AutoDetect
         ));
 
@@ -240,6 +253,7 @@ mod tests {
             None,
             false,
             false,
+            true,
             true,
             true,
             DocstringStyle::AutoDetect
@@ -271,6 +285,7 @@ mod tests {
             true,
             true,
             true,
+            true,
             DocstringStyle::Google
         ));
 
@@ -293,6 +308,7 @@ mod tests {
             &function_info,
             None,
             false,
+            true,
             true,
             true,
             true,
@@ -321,6 +337,7 @@ mod tests {
             &function_info,
             None,
             false,
+            true,
             true,
             true,
             true,
@@ -356,6 +373,7 @@ mod tests {
             true,
             true,
             true,
+            true,
             DocstringStyle::Numpy
         ));
     }
@@ -388,6 +406,7 @@ mod tests {
             false,
             false,
             true,
+            true,
             DocstringStyle::Google
         ));
 
@@ -397,6 +416,7 @@ mod tests {
             false,
             false,
             false,
+            true,
             true,
             DocstringStyle::AutoDetect
         ));
@@ -431,6 +451,7 @@ mod tests {
             false,
             false,
             true,
+            true,
             DocstringStyle::Google
         ));
     }
@@ -460,6 +481,7 @@ mod tests {
             true,
             true,
             true,
+            false,
             DocstringStyle::Google,
         ));
 
@@ -490,6 +512,7 @@ mod tests {
             None,
             None,
             false,
+            true,
             true,
             true,
             true,
@@ -525,6 +548,7 @@ mod tests {
             None,
             None,
             false,
+            true,
             true,
             true,
             true,
@@ -576,6 +600,7 @@ def other_func(x,y,z):
             false,
             false,
             true,
+            true,
             DocstringStyle::Google,
         ));
 
@@ -624,6 +649,7 @@ def other_func(x,y,z):
             false,
             true,
             true,
+            true,
             DocstringStyle::Google,
         ));
 
@@ -666,6 +692,7 @@ def other_func(x,y,z):
             true,
             true,
             false,
+            true,
             DocstringStyle::Google,
         ));
 
@@ -702,6 +729,7 @@ def other_func(x,y,z):
             true,
             true,
             false,
+            true,
             DocstringStyle::Google,
         ));
 
@@ -733,6 +761,7 @@ def other_func(x,y,z):
             true,
             true,
             true,
+            true,
             DocstringStyle::Google
         ));
 
@@ -756,6 +785,7 @@ def other_func(x,y,z):
             None,
             Some(&path),
             false,
+            true,
             true,
             true,
             true,
@@ -800,6 +830,7 @@ def other_func(x,y,z):
             true,
             true,
             true,
+            true,
             DocstringStyle::Google
         ));
 
@@ -841,6 +872,7 @@ def other_func(x,y,z):
             true,
             true,
             true,
+            true,
             DocstringStyle::Google
         ));
 
@@ -860,6 +892,7 @@ def other_func(x,y,z):
             source_code,
             None,
             None,
+            true,
             true,
             true,
             true,
@@ -903,6 +936,7 @@ def other_func(x,y,z):
             true,
             true,
             true,
+            true,
             DocstringStyle::Numpy
         ));
 
@@ -922,6 +956,7 @@ def other_func(x,y,z):
             source_code,
             None,
             None,
+            true,
             true,
             true,
             true,
@@ -1074,6 +1109,7 @@ def other_func(x,y,z):
             true,
             true,
             true,
+            true,
             DocstringStyle::AutoDetect
         ));
 
@@ -1125,6 +1161,7 @@ def other_func(x,y,z):
             None,
             None,
             false,
+            true,
             true,
             true,
             true,

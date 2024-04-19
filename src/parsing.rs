@@ -13,6 +13,7 @@
 ///        y: And this is my second.
 ///    """#,
 ///            false,
+///            true,
 ///        )
 ///        .unwrap();
 ///
@@ -26,18 +27,20 @@
 ///        y (float): And this is my second.
 ///    """#,
 ///            false,
+///            true,
 ///        )
 ///        .unwrap();
 ///
 /// assert_eq!(parsed_docstring, vec![("x", Some("int")), ("y", Some("float"))]);
 ///
-/// let not_a_docstring = parse_google_docstring("This is not a docstring!", false);
+/// let not_a_docstring = parse_google_docstring("This is not a docstring!", false, true);
 ///
 /// assert!(not_a_docstring.is_none());
 ///
 pub fn parse_google_docstring(
     text: &str,
     break_on_empty_line: bool,
+    skip_args_and_kwargs: bool,
 ) -> Option<Vec<(&str, Option<&str>)>> {
     let (_, mut args) = text.split_once("Args:\n")?;
 
@@ -70,6 +73,10 @@ pub fn parse_google_docstring(
             };
 
             let arg = arg.trim();
+
+            if skip_args_and_kwargs && (arg.starts_with('*') || arg.starts_with("**")) {
+                continue;
+            }
 
             let Some((name, typ)) = arg.split_once(' ') else {
                 params.push((arg, None));
@@ -104,6 +111,7 @@ pub fn parse_google_docstring(
 ///        And this is my second.
 ///    """#,
 ///            false,
+///            true,
 ///        )
 ///        .unwrap();
 ///
@@ -120,18 +128,20 @@ pub fn parse_google_docstring(
 ///        And this is my second.
 ///    """#,
 ///            false,
+///            true,
 ///        )
 ///        .unwrap();
 ///
 /// assert_eq!(parsed_docstring, vec![("x", Some("int")), ("y", Some("float"))]);
 ///
-/// let not_a_docstring = parse_numpy_docstring("This is not a docstring!", false);
+/// let not_a_docstring = parse_numpy_docstring("This is not a docstring!", false, true);
 ///
 /// assert!(not_a_docstring.is_none());
 ///
 pub fn parse_numpy_docstring(
     text: &str,
     break_on_empty_line: bool,
+    skip_args_and_kwargs: bool,
 ) -> Option<Vec<(&str, Option<&str>)>> {
     let (_, mut args) = text.split_once("Parameters\n")?;
 
@@ -157,13 +167,28 @@ pub fn parse_numpy_docstring(
             && !line.trim().trim_end_matches(&['\'', '\"']).is_empty()
         {
             let Some((arg, typ)) = line.split_once(':') else {
-                params.push((line.trim(), None));
+                let trimmed_line = line.trim();
+
+                if skip_args_and_kwargs
+                    && (trimmed_line.starts_with('*') || trimmed_line.starts_with("**"))
+                {
+                    continue;
+                }
+
+                params.push((trimmed_line, None));
                 continue;
             };
 
+            let trimmed_arg = arg.trim();
+            if skip_args_and_kwargs
+                && (trimmed_arg.starts_with('*') || trimmed_arg.starts_with("**"))
+            {
+                continue;
+            }
+
             let typ = typ.trim();
 
-            params.push((arg.trim(), Some(typ)));
+            params.push((trimmed_arg, Some(typ)));
         }
     }
 
@@ -199,7 +224,7 @@ mod tests {
                 y: Second var.
             """#;
 
-        let args = parse_google_docstring(docstring, true).unwrap();
+        let args = parse_google_docstring(docstring, true, true).unwrap();
 
         assert_eq!(args[0].1.unwrap(), "int");
         assert_eq!(args[1].0, "y");
@@ -220,7 +245,7 @@ mod tests {
                 Second var.
             """#;
 
-        let args = parse_numpy_docstring(docstring, true).unwrap();
+        let args = parse_numpy_docstring(docstring, true, true).unwrap();
 
         assert_eq!(args[0].1.unwrap(), "int");
         assert_eq!(args[1].0, "y");
@@ -233,7 +258,7 @@ mod tests {
             Parameters
             """#;
 
-        assert!(parse_numpy_docstring(docstring, true).is_none());
+        assert!(parse_numpy_docstring(docstring, true, true).is_none());
     }
 
     #[test]
@@ -283,5 +308,47 @@ mod tests {
         let not_docstring = "Not a docstring.";
 
         assert!(extract_docstring(not_docstring).is_none());
+    }
+
+    #[test]
+    fn test_args_from_docstring() {
+        let docstring = r#""""Hey.
+
+            Args:
+                x (int): First var.
+                *args: A lot of things.
+                y: Second var.
+            """"#;
+
+        let parsed = parse_google_docstring(docstring, true, true).unwrap();
+
+        assert_eq!(parsed, vec![("x", Some("int")), ("y", None)]);
+
+        let parsed = parse_google_docstring(docstring, true, false).unwrap();
+
+        assert_eq!(
+            parsed,
+            vec![("x", Some("int")), ("*args", None), ("y", None)]
+        );
+
+        let docstring = r#""""Hey.
+
+            Parameters
+            ----------
+            x
+                First var.
+            y
+                Second var.
+            **kwargs
+                A lot of things with keywords.
+            """"#;
+
+        let parsed = parse_numpy_docstring(docstring, true, true).unwrap();
+
+        assert_eq!(parsed, vec![("x", None), ("y", None)]);
+
+        let parsed = parse_numpy_docstring(docstring, true, false).unwrap();
+
+        assert_eq!(parsed, vec![("x", None), ("y", None), ("**kwargs", None)]);
     }
 }

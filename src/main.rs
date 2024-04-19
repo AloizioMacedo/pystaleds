@@ -36,7 +36,7 @@ struct Args {
     #[arg(long, default_value_t = false, alias = "ak")]
     /// Will consider *args and **kwargs when checking the docstrings. If this flag is
     /// not set, they are just completely ignored.
-    args_and_kwargs: bool,
+    include_args_and_kwargs: bool,
 
     #[arg(short, long, default_value_t, value_enum)]
     /// Which parsing to use. Defaults to simple lexer, which is faster. Select
@@ -190,7 +190,7 @@ fn main() -> Result<()> {
                 args.forbid_no_docstring,
                 args.forbid_no_args_in_docstring,
                 args.forbid_untyped_docstrings,
-                args.args_and_kwargs,
+                args.include_args_and_kwargs,
                 args.docstyle,
             )? {
                 0
@@ -221,7 +221,7 @@ fn assess_success(entry: &Path, args: &Args, total_errors: &AtomicU32) {
             args.forbid_no_docstring,
             args.forbid_no_args_in_docstring,
             args.forbid_untyped_docstrings,
-            args.args_and_kwargs,
+            args.include_args_and_kwargs,
             args.docstyle,
         ) else {
             return;
@@ -240,7 +240,7 @@ fn is_file_compliant_tree_sitter(
     forbid_no_docstring: bool,
     forbid_no_args_in_docstring: bool,
     forbid_untyped_docstrings: bool,
-    _args_and_kwargs: bool,
+    args_and_kwargs: bool,
     docstyle: DocstringStyle,
 ) -> Result<bool> {
     let mut parser = tree_sitter::Parser::new();
@@ -257,6 +257,7 @@ fn is_file_compliant_tree_sitter(
         !forbid_no_docstring,
         !forbid_no_args_in_docstring,
         !forbid_untyped_docstrings,
+        !args_and_kwargs,
         docstyle,
     );
 
@@ -285,7 +286,7 @@ fn is_file_compliant_lexing(
         !forbid_no_docstring,
         !forbid_no_args_in_docstring,
         !forbid_untyped_docstrings,
-        args_and_kwargs,
+        !args_and_kwargs,
         docstyle,
     );
 
