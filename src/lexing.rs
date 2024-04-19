@@ -6,6 +6,7 @@ use crate::ast_parsing::{FunctionInfo, FunctionLocation};
 pub fn get_next_function_info<'a, 'b>(
     lexer: &mut Lexer<'a, Token>,
     params: &'b mut Vec<(&'a str, Option<&'a str>)>,
+    skip_args_and_kwargs: bool,
 ) -> Option<FunctionInfo<'a, 'b>> {
     params.clear();
 
@@ -30,7 +31,10 @@ pub fn get_next_function_info<'a, 'b>(
 
                     let (typ, finished_on) = extract_possibly_parenthesized_content(lexer).ok()?;
 
-                    if param_name != "self" {
+                    if param_name != "self"
+                        && !(skip_args_and_kwargs
+                            && (param_name.starts_with('*') || param_name.starts_with("**")))
+                    {
                         params.push((param_name, Some(typ)));
                     }
 
@@ -55,7 +59,10 @@ pub fn get_next_function_info<'a, 'b>(
 
                     let (_, finished_on) = extract_possibly_parenthesized_content(lexer).ok()?;
 
-                    if param_name != "self" {
+                    if param_name != "self"
+                        && !(skip_args_and_kwargs
+                            && (param_name.starts_with('*') || param_name.starts_with("**")))
+                    {
                         params.push((param_name, None));
                     }
 
@@ -64,7 +71,10 @@ pub fn get_next_function_info<'a, 'b>(
                     }
                 }
                 _ => {
-                    if param_name != "self" {
+                    if param_name != "self"
+                        && !(skip_args_and_kwargs
+                            && (param_name.starts_with('*') || param_name.starts_with("**")))
+                    {
                         params.push((param_name, None));
                     }
                 }
@@ -221,14 +231,8 @@ pub enum Token {
     #[token("=")]
     Equals,
 
-    #[token(r#"*args"#)]
-    Args,
-
-    #[token(r#"**kwargs"#)]
-    Kwargs,
-
     // Or regular expressions.
-    #[regex("[a-zA-Z0-9\'\"_|]+")]
+    #[regex("[a-zA-Z0-9\'\"_|*]+")]
     Text,
 }
 
@@ -274,7 +278,7 @@ mod tests {
 
         let mut params = Vec::new();
 
-        let function_info = get_next_function_info(&mut lex, &mut params).unwrap();
+        let function_info = get_next_function_info(&mut lex, &mut params, true).unwrap();
 
         assert_eq!(
             function_info.params,
@@ -295,7 +299,7 @@ mod tests {
 
         let mut params = Vec::new();
 
-        get_next_function_info(&mut lex, &mut params);
+        get_next_function_info(&mut lex, &mut params, true);
 
         assert_eq!(params, vec![("a", None), ("b", Some("str")), ("c", None)]);
     }
@@ -319,11 +323,11 @@ def g(x,y):
 
         let mut params = Vec::new();
 
-        get_next_function_info(&mut lex, &mut params);
+        get_next_function_info(&mut lex, &mut params, true);
 
         assert_eq!(params, vec![("a", None), ("b", None), ("c", None)]);
 
-        get_next_function_info(&mut lex, &mut params);
+        get_next_function_info(&mut lex, &mut params, true);
 
         assert_eq!(params, vec![("x", None), ("y", None)]);
     }
@@ -334,5 +338,69 @@ def g(x,y):
         let (result, _) = extract_possibly_parenthesized_content(&mut lex).unwrap();
 
         assert_eq!(result, "[c{df}]")
+    }
+
+    #[test]
+    fn test_args() {
+        let mut lex = Token::lexer(
+            r#"
+    def f(x, y, z, *args, a="oi"):
+        """Hello.
+
+
+
+
+
+        Nice spaces.
+
+
+        Arguments:
+            x:
+            y:
+            z:
+            """
+    "#,
+        );
+        let mut params = Vec::new();
+        get_next_function_info(&mut lex, &mut params, true).unwrap();
+
+        assert_eq!(
+            params,
+            vec![("x", None), ("y", None), ("z", None), ("a", None)]
+        );
+
+        let mut lex = Token::lexer(
+            r#"
+    def f(x, y, z, *args, a="oi"):
+        """Hello.
+
+
+
+
+
+        Nice spaces.
+
+
+        Arguments:
+            x:
+            y:
+            z:
+            """
+    "#,
+        );
+
+        let mut params = Vec::new();
+        get_next_function_info(&mut lex, &mut params, false).unwrap();
+
+        assert_eq!(
+            params,
+            vec![
+                ("x", None),
+                ("y", None),
+                ("z", None),
+                ("*args", None),
+                ("a", None)
+            ]
+        );
     }
 }

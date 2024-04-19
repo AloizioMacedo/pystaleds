@@ -88,6 +88,7 @@ pub fn respects_rules_through_lexing(
     succeed_if_no_docstring: bool,
     succeed_if_no_args_in_docstring: bool,
     succeed_if_docstrings_are_not_typed: bool,
+    args_and_kwargs: bool,
     docstyle: DocstringStyle,
 ) -> bool {
     let mut lexer = Lexer::new(source_code);
@@ -95,7 +96,7 @@ pub fn respects_rules_through_lexing(
     let mut success = true;
     let mut params = Vec::with_capacity(8);
 
-    while let Some(info) = get_next_function_info(&mut lexer, &mut params) {
+    while let Some(info) = get_next_function_info(&mut lexer, &mut params, args_and_kwargs) {
         if !is_function_info_valid(
             &info,
             path,
@@ -469,6 +470,7 @@ mod tests {
             true,
             true,
             true,
+            true,
             DocstringStyle::Google,
         ));
 
@@ -498,6 +500,7 @@ mod tests {
             source_code,
             None,
             false,
+            true,
             true,
             true,
             true,
@@ -532,6 +535,7 @@ mod tests {
             source_code,
             None,
             false,
+            true,
             true,
             true,
             true,
@@ -582,6 +586,7 @@ def other_func(x,y,z):
             false,
             false,
             true,
+            true,
             DocstringStyle::Google,
         ))
     }
@@ -629,6 +634,7 @@ def other_func(x,y,z):
             false,
             true,
             true,
+            true,
             DocstringStyle::Google,
         ));
     }
@@ -670,6 +676,7 @@ def other_func(x,y,z):
             true,
             true,
             false,
+            true,
             DocstringStyle::Google,
         ));
 
@@ -705,6 +712,7 @@ def other_func(x,y,z):
             true,
             true,
             false,
+            true,
             DocstringStyle::Google,
         ));
     }
@@ -735,6 +743,7 @@ def other_func(x,y,z):
             true,
             true,
             true,
+            true,
             DocstringStyle::Google
         ));
 
@@ -757,6 +766,7 @@ def other_func(x,y,z):
             &source_code,
             Some(&path),
             false,
+            true,
             true,
             true,
             true,
@@ -800,6 +810,7 @@ def other_func(x,y,z):
             true,
             true,
             true,
+            true,
             DocstringStyle::Google
         ));
     }
@@ -840,6 +851,7 @@ def other_func(x,y,z):
             true,
             true,
             true,
+            true,
             DocstringStyle::Google
         ));
 
@@ -858,6 +870,7 @@ def other_func(x,y,z):
         assert!(respects_rules_through_lexing(
             source_code,
             None,
+            true,
             true,
             true,
             true,
@@ -900,6 +913,7 @@ def other_func(x,y,z):
             true,
             true,
             true,
+            true,
             DocstringStyle::Numpy
         ));
 
@@ -918,6 +932,7 @@ def other_func(x,y,z):
         assert!(respects_rules_through_lexing(
             source_code,
             None,
+            true,
             true,
             true,
             true,
@@ -1069,6 +1084,7 @@ def other_func(x,y,z):
             true,
             true,
             true,
+            true,
             DocstringStyle::AutoDetect
         ));
     }
@@ -1119,6 +1135,7 @@ def other_func(x,y,z):
             source_code,
             None,
             false,
+            true,
             true,
             true,
             true,
