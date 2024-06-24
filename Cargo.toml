@@ -1,6 +1,6 @@
 [package]
 name = "pystaleds"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -11,7 +11,6 @@ crate-type = ["lib"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
 name = "pystaleds"
-
 
 [dependencies]
 anyhow = "1.0.81"
